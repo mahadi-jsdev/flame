@@ -13,7 +13,8 @@ MVP scope (what is currently built):
 - Multiple workspaces.
 - Each workspace can contain multiple project folders.
 - Active project sets the working directory for newly spawned terminals.
-- Sidebar workspace switcher, project switcher, active-project file tree, and a Files/Git toggle for git status/actions.
+- Sidebar workspace switcher and project switcher.
+- Git panel showing changed files as a collapsible file tree, branch switching, and per-file diff that opens in a new terminal pane.
 - Resizable multi-pane terminal grid per workspace.
 - Real PTY sessions via `portable-pty` on the Rust side and `xterm.js` in the
   React frontend.
@@ -45,7 +46,7 @@ src/                         React / TypeScript frontend
   components/
     Workspace.tsx            Main shell, toolbar, terminal grid, footer
     Sidebar.tsx              Workspace switcher
-    ProjectPanel.tsx         Project switcher + Files/Git tab
+    ProjectPanel.tsx         Project switcher + git status tree / branch switcher
     TerminalPane.tsx         xterm.js pane wired to PTY
   lib/
     tauri.ts                 Tauri command helpers
@@ -57,8 +58,7 @@ src-tauri/                   Rust / Tauri backend
   src/
     lib.rs                   Tauri command registration
     pty.rs                   PTY manager with portable-pty
-    filesystem.rs            Directory listing
-    git.rs                   Git status and branch helpers
+    git.rs                   Git status, branch list, and branch switch helpers
 AGENTS.md                    This file
 ```
 

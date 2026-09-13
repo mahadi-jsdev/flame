@@ -1,17 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { useWorkspaceStore } from "../store/workspaceStore";
-import { gitBranch, gitStatus, GitStatusEntry } from "../lib/tauri";
 import {
+  gitBranch,
+  gitBranches,
+  gitCheckout,
+  gitStatus,
+  GitStatusEntry,
+} from "../lib/tauri";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
   File,
   Folder,
   FolderOpen,
-  RefreshCw,
   GitBranch,
   Plus,
+  RefreshCw,
   X,
 } from "lucide-react";
-
-type Tab = "files" | "git";
 
 function projectName(root: string) {
   return (
@@ -77,6 +84,63 @@ function statusLabel(status: string) {
   return (map[status] ?? status.trim()) || "unchanged";
 }
 
+interface TreeDir {
+  name: string;
+  path: string;
+  dirs: TreeDir[];
+  files: { name: string; entry: GitStatusEntry }[];
+}
+
+function buildTree(entries: GitStatusEntry[]): TreeDir {
+  const root: TreeDir = { name: "", path: "", dirs: [], files: [] };
+  const dirMap = new Map<string, TreeDir>([["", root]]);
+
+  const ensureDir = (path: string): TreeDir => {
+    const existing = dirMap.get(path);
+    if (existing) return existing;
+    const idx = path.lastIndexOf("/");
+    const parent = ensureDir(idx === -1 ? "" : path.slice(0, idx));
+    const dir: TreeDir = {
+      name: idx === -1 ? path : path.slice(idx + 1),
+      path,
+      dirs: [],
+      files: [],
+    };
+    dirMap.set(path, dir);
+    parent.dirs.push(dir);
+    return dir;
+  };
+
+  for (const e of entries) {
+    const parts = e.path.split("/");
+    const name = parts.pop() ?? e.path;
+    const dir = ensureDir(parts.join("/"));
+    dir.files.push({ name, entry: e });
+  }
+
+  const compress = (dir: TreeDir): TreeDir => {
+    dir.dirs = dir.dirs.map(compress);
+    while (dir.dirs.length === 1 && dir.files.length === 0) {
+      const only = dir.dirs[0];
+      dir.name = dir.name ? `${dir.name}/${only.name}` : only.name;
+      dir.path = only.path;
+      dir.dirs = only.dirs;
+      dir.files = only.files;
+    }
+    return dir;
+  };
+  root.dirs = root.dirs.map(compress);
+
+  const sortDir = (dir: TreeDir) => {
+    dir.dirs.sort((a, b) => a.name.localeCompare(b.name));
+    dir.files.sort((a, b) => a.name.localeCompare(b.name));
+    dir.dirs.forEach(sortDir);
+  };
+  sortDir(root);
+
+  return root;
+}
+
 export function ProjectPanel() {
   const store = useWorkspaceStore();
   const workspace = store.getActiveWorkspace();
@@ -84,9 +148,11 @@ export function ProjectPanel() {
     (p) => p.id === workspace.activeProjectId,
   );
 
-  const [tab, setTab] = useState<Tab>("files");
   const [entries, setEntries] = useState<GitStatusEntry[]>([]);
   const [branch, setBranch] = useState<string | null>(null);
+  const [branches, setBranches] = useState<string[]>([]);
+  const [showBranches, setShowBranches] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -113,28 +179,59 @@ export function ProjectPanel() {
   };
 
   useEffect(() => {
-    if (tab === "git" && project) {
+    if (project) {
       refreshGit();
+    } else {
+      setEntries([]);
+      setBranch(null);
     }
-  }, [tab, project?.id, project?.root]);
+    setShowBranches(false);
+  }, [project?.id, project?.root]);
 
   const handleAddProject = async () => {
     const { open } = await import("@tauri-apps/plugin-dialog");
-    const { invoke } = await import("@tauri-apps/api/core");
     const path = await open({ directory: true });
     if (typeof path !== "string") return;
-    const list = await invoke<
-      { name: string; path: string; is_dir: boolean }[]
-    >("list_dir", { path });
-    store.addProject(path, list);
+    store.addProject(path);
   };
 
-  const grouped = useMemo(() => {
-    const staged = entries.filter((e) => "MACRD".includes(e.status[0]));
-    const unstaged = entries.filter((e) => "MACRD".includes(e.status[1]));
-    const untracked = entries.filter((e) => e.status === "??");
-    return { staged, unstaged, untracked };
-  }, [entries]);
+  const toggleBranches = async () => {
+    if (!project) return;
+    if (!showBranches) {
+      try {
+        setBranches(await gitBranches(project.root));
+      } catch {
+        setBranches([]);
+      }
+    }
+    setShowBranches((v) => !v);
+  };
+
+  const switchBranch = async (b: string) => {
+    if (!project) return;
+    setShowBranches(false);
+    if (b === branch) return;
+    try {
+      await gitCheckout(project.root, b);
+    } catch (e) {
+      setError(String(e));
+    }
+    await refreshGit();
+  };
+
+  const toggleDir = (path: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) {
+        next.delete(path);
+      } else {
+        next.add(path);
+      }
+      return next;
+    });
+  };
+
+  const tree = useMemo(() => buildTree(entries), [entries]);
 
   if (!workspace) return null;
 
@@ -207,68 +304,28 @@ export function ProjectPanel() {
             })
           )}
         </div>
-
-        <div className="flex p-1 rounded-lg bg-slate-900/80 border border-white/10">
-          <button
-            onClick={() => setTab("files")}
-            className={`flex-1 px-2 py-2 rounded-md text-xs font-medium transition-all duration-200 ${
-              tab === "files"
-                ? "bg-cyan-500/15 text-cyan-100 shadow-sm"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            Files
-          </button>
-          <button
-            onClick={() => setTab("git")}
-            className={`flex-1 px-2 py-2 rounded-md text-xs font-medium transition-all duration-200 ${
-              tab === "git"
-                ? "bg-cyan-500/15 text-cyan-100 shadow-sm"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            Git
-          </button>
-        </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto px-3 pb-3">
-        {tab === "files" ? (
-          project ? (
-            <div className="space-y-0.5 pt-2">
-              {project.entries.map((e) => (
-                <div
-                  key={e.path}
-                  className="flex items-center gap-2.5 py-2 px-2.5 rounded-lg text-sm text-slate-300 hover:bg-slate-800/60 hover:text-slate-100 transition-all duration-150 cursor-pointer group animate-fade-in"
-                >
-                  {e.is_dir ? (
-                    <Folder
-                      size={15}
-                      className="text-violet-400 group-hover:text-violet-300 transition-colors"
-                    />
-                  ) : (
-                    <File
-                      size={15}
-                      className="text-cyan-400 group-hover:text-cyan-300 transition-colors"
-                    />
-                  )}
-                  <span className="truncate">{e.name}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="h-40 flex flex-col items-center justify-center text-slate-500 text-center px-4">
-              <FolderOpen size={28} className="mb-2 text-slate-700" />
-              <p className="text-xs">Select or add a project to see files</p>
-            </div>
-          )
-        ) : (
+        {project ? (
           <div className="pt-3 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-slate-300">
-                <GitBranch size={14} className="text-violet-400" />
-                <span className="font-mono">{branch ?? "no branch"}</span>
-              </div>
+              <button
+                onClick={toggleBranches}
+                className="flex items-center gap-2 min-w-0 text-sm text-slate-300 hover:text-cyan-300 transition-colors"
+                title="Switch branch"
+              >
+                <GitBranch size={14} className="shrink-0 text-violet-400" />
+                <span className="font-mono truncate">
+                  {branch ?? "no branch"}
+                </span>
+                <ChevronDown
+                  size={12}
+                  className={`shrink-0 text-slate-500 transition-transform ${
+                    showBranches ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
               <button
                 onClick={refreshGit}
                 disabled={loading}
@@ -282,6 +339,36 @@ export function ProjectPanel() {
               </button>
             </div>
 
+            {showBranches && (
+              <div className="rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden">
+                {branches.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-slate-500">
+                    No local branches
+                  </div>
+                ) : (
+                  branches.map((b) => (
+                    <div
+                      key={b}
+                      onClick={() => switchBranch(b)}
+                      className={`flex items-center gap-2 px-3 py-2 text-xs cursor-pointer transition-colors ${
+                        b === branch
+                          ? "bg-cyan-500/10 text-cyan-300"
+                          : "text-slate-300 hover:bg-slate-800/60"
+                      }`}
+                    >
+                      <Check
+                        size={12}
+                        className={`shrink-0 ${
+                          b === branch ? "text-cyan-400" : "text-transparent"
+                        }`}
+                      />
+                      <span className="truncate font-mono">{b}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
             {error && (
               <div className="text-[11px] text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2">
                 {error}
@@ -294,86 +381,111 @@ export function ProjectPanel() {
               </div>
             )}
 
-            {entries.length > 0 && project && (
-              <div className="space-y-2">
-                <GitGroup
-                  title="Staged"
-                  entries={grouped.staged}
-                  root={project.root}
-                />
-                <GitGroup
-                  title="Unstaged"
-                  entries={grouped.unstaged}
-                  root={project.root}
-                />
-                <GitGroup
-                  title="Untracked"
-                  entries={grouped.untracked}
+            {entries.length > 0 && (
+              <div className="space-y-0.5">
+                <DirTree
+                  dir={tree}
+                  depth={0}
+                  collapsed={collapsed}
+                  onToggle={toggleDir}
                   root={project.root}
                 />
               </div>
             )}
           </div>
+        ) : (
+          <div className="h-40 flex flex-col items-center justify-center text-slate-500 text-center px-4">
+            <FolderOpen size={28} className="mb-2 text-slate-700" />
+            <p className="text-xs">Select or add a project to see changes</p>
+          </div>
         )}
       </div>
 
       <div className="h-8 shrink-0 flex items-center px-4 text-xs text-slate-600 border-t border-white/10">
-        {tab === "files"
-          ? `${project?.entries.length ?? 0} item${(project?.entries.length ?? 0) === 1 ? "" : "s"}`
-          : `${entries.length} change${entries.length === 1 ? "" : "s"}`}
+        {entries.length} change{entries.length === 1 ? "" : "s"}
       </div>
     </div>
   );
 }
 
-function GitGroup({
-  title,
-  entries,
+function DirTree({
+  dir,
+  depth,
+  collapsed,
+  onToggle,
   root,
 }: {
-  title: string;
-  entries: GitStatusEntry[];
+  dir: TreeDir;
+  depth: number;
+  collapsed: Set<string>;
+  onToggle: (path: string) => void;
   root: string;
 }) {
-  if (entries.length === 0) return null;
   return (
-    <div>
-      <div className="text-xs text-slate-500 uppercase tracking-wider mb-2 px-1">
-        {title}
-      </div>
-      <div className="space-y-1.5">
-        {entries.map((e) => (
-          <div
-            key={e.path}
-            onClick={() => openGitDiffInTerminal(e.path, e.status, root)}
-            className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-slate-900/40 border border-white/5 hover:bg-slate-800/60 transition-colors cursor-pointer"
-            title="Open git diff in a new terminal"
-          >
-            <span
-              className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border font-medium ${statusColor(
-                e.status,
-              )}`}
-              title={statusLabel(e.status)}
+    <>
+      {dir.dirs.map((d) => {
+        const isCollapsed = collapsed.has(d.path);
+        return (
+          <div key={d.path}>
+            <div
+              onClick={() => onToggle(d.path)}
+              className="flex items-center gap-1.5 py-1.5 pr-2 rounded-md text-xs text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 cursor-pointer transition-colors"
+              style={{ paddingLeft: `${depth * 14 + 4}px` }}
             >
-              {e.status}
-            </span>
-            <File size={14} className="shrink-0 text-cyan-400" />
-            <span className="text-xs text-slate-300 truncate flex-1 min-w-0">
-              {e.original_path ? (
-                <>
-                  <span className="text-slate-500 line-through">
-                    {e.original_path}
-                  </span>
-                  {" → "}
-                  {e.path}
-                </>
+              {isCollapsed ? (
+                <ChevronRight size={12} className="shrink-0 text-slate-500" />
               ) : (
-                e.path
+                <ChevronDown size={12} className="shrink-0 text-slate-500" />
               )}
-            </span>
+              <Folder size={13} className="shrink-0 text-violet-400" />
+              <span className="truncate">{d.name}</span>
+            </div>
+            {!isCollapsed && (
+              <DirTree
+                dir={d}
+                depth={depth + 1}
+                collapsed={collapsed}
+                onToggle={onToggle}
+                root={root}
+              />
+            )}
           </div>
-        ))}
-      </div>
-    </div>
+        );
+      })}
+      {dir.files.map((f) => (
+        <div
+          key={f.entry.path}
+          onClick={() =>
+            openGitDiffInTerminal(f.entry.path, f.entry.status, root)
+          }
+          className="flex items-center gap-2 py-1.5 pr-2 rounded-md hover:bg-slate-800/60 transition-colors cursor-pointer"
+          style={{ paddingLeft: `${depth * 14 + 21}px` }}
+          title="Open git diff in a new terminal"
+        >
+          <File size={13} className="shrink-0 text-cyan-400" />
+          <span className="text-xs text-slate-300 truncate flex-1 min-w-0">
+            {f.entry.original_path ? (
+              <>
+                <span className="text-slate-500 line-through">
+                  {f.entry.original_path.split("/").pop()}
+                </span>
+                {" → "}
+                {f.name}
+              </>
+            ) : (
+              f.name
+            )}
+          </span>
+          <span
+            className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border font-medium ${statusColor(
+              f.entry.status,
+            )}`}
+            title={statusLabel(f.entry.status)}
+          >
+            {f.entry.status}
+          </span>
+        </div>
+      ))}
+    </>
   );
 }

@@ -1,9 +1,7 @@
-mod filesystem;
 mod git;
 mod pty;
 
-use filesystem::{list_directory, DirEntry};
-use git::{git_branch, git_status, GitStatusEntry};
+use git::{git_branch, git_branches, git_checkout, git_status, GitStatusEntry};
 use pty::{PtyManager, PtySpawnResult};
 use tauri::Manager;
 
@@ -39,11 +37,6 @@ fn kill_pty(state: tauri::State<'_, PtyManager>, id: String) -> Result<(), Strin
 }
 
 #[tauri::command]
-fn list_dir(path: String) -> Result<Vec<DirEntry>, String> {
-    list_directory(&path)
-}
-
-#[tauri::command]
 fn git_status_cmd(path: String) -> Result<Vec<GitStatusEntry>, String> {
     git_status(&path)
 }
@@ -51,6 +44,16 @@ fn git_status_cmd(path: String) -> Result<Vec<GitStatusEntry>, String> {
 #[tauri::command]
 fn git_branch_cmd(path: String) -> Result<Option<String>, String> {
     git_branch(&path)
+}
+
+#[tauri::command]
+fn git_branches_cmd(path: String) -> Result<Vec<String>, String> {
+    git_branches(&path)
+}
+
+#[tauri::command]
+fn git_checkout_cmd(path: String, branch: String) -> Result<(), String> {
+    git_checkout(&path, &branch)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -67,9 +70,10 @@ pub fn run() {
             write_pty,
             resize_pty,
             kill_pty,
-            list_dir,
             git_status_cmd,
-            git_branch_cmd
+            git_branch_cmd,
+            git_branches_cmd,
+            git_checkout_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

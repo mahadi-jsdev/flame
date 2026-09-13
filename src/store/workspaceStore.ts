@@ -1,15 +1,8 @@
 import { create } from "zustand";
 
-export interface DirEntry {
-  name: string;
-  path: string;
-  is_dir: boolean;
-}
-
 export interface Project {
   id: string;
   root: string;
-  entries: DirEntry[];
 }
 
 export type PaneType = "terminal";
@@ -42,7 +35,7 @@ interface WorkspaceState {
   setActiveWorkspace: (id: string) => void;
   renameWorkspace: (id: string, name: string) => void;
 
-  addProject: (root: string, entries: DirEntry[], workspaceId?: string) => void;
+  addProject: (root: string, workspaceId?: string) => void;
   removeProject: (projectId: string, workspaceId?: string) => void;
   setActiveProject: (projectId: string, workspaceId?: string) => void;
 
@@ -127,11 +120,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }));
   },
 
-  addProject: (root, entries, workspaceId) => {
+  addProject: (root, workspaceId) => {
     set((state) => {
       const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
       if (!id) return state;
-      const project = { id: newId(), root, entries };
+      const project = { id: newId(), root };
       return {
         workspaces: state.workspaces.map((w) =>
           w.id === id

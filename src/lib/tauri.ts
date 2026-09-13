@@ -19,6 +19,14 @@ export function gitBranch(path: string) {
   return invoke<string | null>("git_branch_cmd", { path });
 }
 
+export function gitBranches(path: string) {
+  return invoke<string[]>("git_branches_cmd", { path });
+}
+
+export function gitCheckout(path: string, branch: string) {
+  return invoke<void>("git_checkout_cmd", { path, branch });
+}
+
 export function spawnPty(shell?: string, rows = 24, cols = 80, cwd?: string) {
   return invoke<PtySpawnResult>("spawn_pty", { shell, rows, cols, cwd });
 }

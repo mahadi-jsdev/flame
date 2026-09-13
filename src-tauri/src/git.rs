@@ -61,6 +61,43 @@ pub fn git_status(path: &str) -> Result<Vec<GitStatusEntry>, String> {
     Ok(entries)
 }
 
+pub fn git_branches(path: &str) -> Result<Vec<String>, String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(path)
+        .arg("branch")
+        .arg("--format=%(refname:short)")
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    Ok(text
+        .lines()
+        .map(|l| l.trim().to_string())
+        .filter(|l| !l.is_empty())
+        .collect())
+}
+
+pub fn git_checkout(path: &str, branch: &str) -> Result<(), String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(path)
+        .arg("switch")
+        .arg(branch)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    Ok(())
+}
+
 pub fn git_branch(path: &str) -> Result<Option<String>, String> {
     let output = Command::new("git")
         .arg("-C")
