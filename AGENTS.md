@@ -51,6 +51,7 @@ src/                         React / TypeScript frontend
     TerminalPane.tsx         xterm.js pane wired to PTY
     SettingsDialog.tsx       App settings modal (font, cursor, scrollback, diff viewer)
   lib/
+    gitUtils.ts              Git status helpers: tree building, status badges, shell quoting, diff commands
     tauri.ts                 Tauri command helpers
   store/
     workspaceStore.ts        Zustand state for workspaces/projects/panes
@@ -82,6 +83,12 @@ Type-check the frontend:
 
 ```bash
 npx tsc --noEmit
+```
+
+Run frontend tests (vitest + jsdom + testing-library):
+
+```bash
+npm test
 ```
 
 Run Rust tests:

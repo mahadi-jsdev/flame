@@ -160,7 +160,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 ? {
                   ...w,
                   projects: [...w.projects, project],
-                  activeProjectId: w.activeProjectId ?? project.id,
+                  activeProjectId: project.id,
                 }
                 : w
             ),
@@ -276,9 +276,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           return {
             workspaces: state.workspaces.map((w) => {
               if (w.id !== id) return w;
+              const removed = w.panes.find((p) => p.id === paneId);
               const remaining = w.panes.filter((p) => p.id !== paneId);
               const panes = remaining.length > 0 ? remaining : [{ id: newId(), type: "terminal" as const }];
-              return { ...w, panes };
+              const activeTerminalId =
+                removed?.sessionId && removed.sessionId === w.activeTerminalId
+                  ? null
+                  : w.activeTerminalId;
+              return { ...w, panes, activeTerminalId };
             }),
           };
         });
