@@ -6,24 +6,51 @@ export interface DirEntry {
   is_dir: boolean;
 }
 
-export type PaneType = "terminal" | "chat" | "browser";
+export interface Project {
+  id: string;
+  root: string;
+  entries: DirEntry[];
+}
+
+export type PaneType = "terminal";
 
 export interface Pane {
   id: string;
   type: PaneType;
   sessionId?: string;
+  shell?: string;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  projects: Project[];
+  activeProjectId: string | null;
+  panes: Pane[];
+  activeTerminalId: string | null;
 }
 
 interface WorkspaceState {
-  root: string | null;
-  entries: DirEntry[];
-  panes: Pane[];
-  activeTerminalId: string | null;
-  setRoot: (root: string, entries: DirEntry[]) => void;
-  addPane: (type: PaneType) => void;
-  removePane: (id: string) => void;
-  setSessionId: (paneId: string, sessionId: string) => void;
-  setActiveTerminal: (id: string) => void;
+  workspaces: Workspace[];
+  activeWorkspaceId: string | null;
+
+  getActiveWorkspace: () => Workspace | undefined;
+
+  addWorkspace: (name?: string) => void;
+  removeWorkspace: (id: string) => void;
+  setActiveWorkspace: (id: string) => void;
+  renameWorkspace: (id: string, name: string) => void;
+
+  addProject: (root: string, entries: DirEntry[], workspaceId?: string) => void;
+  removeProject: (projectId: string, workspaceId?: string) => void;
+  setActiveProject: (projectId: string, workspaceId?: string) => void;
+
+  addPane: (workspaceId?: string) => void;
+  removePane: (paneId: string, workspaceId?: string) => void;
+  setSessionId: (paneId: string, sessionId: string, shell?: string, workspaceId?: string) => void;
+  setActiveTerminal: (sessionId: string, workspaceId?: string) => void;
+
+  activeCwd: () => string | undefined;
 }
 
 function newId() {
@@ -33,25 +60,183 @@ function newId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export const useWorkspaceStore = create<WorkspaceState>((set) => ({
-  root: null,
-  entries: [],
-  panes: [{ id: newId(), type: "terminal" }],
-  activeTerminalId: null,
-  setRoot: (root, entries) => set({ root, entries }),
-  addPane: (type) =>
+function defaultWorkspaceName(index: number) {
+  return `Workspace ${index}`;
+}
+
+function createWorkspace(name: string): Workspace {
+  return {
+    id: newId(),
+    name,
+    projects: [],
+    activeProjectId: null,
+    panes: [{ id: newId(), type: "terminal" }],
+    activeTerminalId: null,
+  };
+}
+
+export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
+  workspaces: [createWorkspace(defaultWorkspaceName(1))],
+  activeWorkspaceId: null,
+
+  getActiveWorkspace: () => {
+    const { workspaces, activeWorkspaceId } = get();
+    if (!activeWorkspaceId) return workspaces[0];
+    return workspaces.find((w) => w.id === activeWorkspaceId);
+  },
+
+  addWorkspace: (name) => {
+    set((state) => {
+      const nextIndex = state.workspaces.length + 1;
+      const workspace = createWorkspace(name ?? defaultWorkspaceName(nextIndex));
+      return {
+        workspaces: [...state.workspaces, workspace],
+        activeWorkspaceId: workspace.id,
+      };
+    });
+  },
+
+  removeWorkspace: (id) => {
+    set((state) => {
+      const remaining = state.workspaces.filter((w) => w.id !== id);
+      if (remaining.length === 0) {
+        const workspace = createWorkspace(defaultWorkspaceName(1));
+        return {
+          workspaces: [workspace],
+          activeWorkspaceId: workspace.id,
+        };
+      }
+
+      let activeWorkspaceId = state.activeWorkspaceId;
+      if (activeWorkspaceId === id || !activeWorkspaceId) {
+        activeWorkspaceId = remaining[0].id;
+      }
+      return { workspaces: remaining, activeWorkspaceId };
+    });
+  },
+
+  setActiveWorkspace: (id) => set({ activeWorkspaceId: id }),
+
+  renameWorkspace: (id, name) => {
     set((state) => ({
-      panes: [...state.panes, { id: newId(), type }],
-    })),
-  removePane: (id) =>
-    set((state) => ({
-      panes: state.panes.filter((p) => p.id !== id),
-    })),
-  setSessionId: (paneId, sessionId) =>
-    set((state) => ({
-      panes: state.panes.map((p) =>
-        p.id === paneId ? { ...p, sessionId } : p
+      workspaces: state.workspaces.map((w) =>
+        w.id === id ? { ...w, name } : w
       ),
-    })),
-  setActiveTerminal: (id) => set({ activeTerminalId: id }),
+    }));
+  },
+
+  addProject: (root, entries, workspaceId) => {
+    set((state) => {
+      const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+      if (!id) return state;
+      const project = { id: newId(), root, entries };
+      return {
+        workspaces: state.workspaces.map((w) =>
+          w.id === id
+            ? {
+                ...w,
+                projects: [...w.projects, project],
+                activeProjectId: w.activeProjectId ?? project.id,
+              }
+            : w
+        ),
+      };
+    });
+  },
+
+  removeProject: (projectId, workspaceId) => {
+    set((state) => {
+      const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+      if (!id) return state;
+      return {
+        workspaces: state.workspaces.map((w) => {
+          if (w.id !== id) return w;
+          const projects = w.projects.filter((p) => p.id !== projectId);
+          const activeProjectId =
+            w.activeProjectId === projectId
+              ? projects[0]?.id ?? null
+              : w.activeProjectId;
+          return { ...w, projects, activeProjectId };
+        }),
+      };
+    });
+  },
+
+  setActiveProject: (projectId, workspaceId) => {
+    set((state) => {
+      const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+      if (!id) return state;
+      return {
+        workspaces: state.workspaces.map((w) =>
+          w.id === id ? { ...w, activeProjectId: projectId } : w
+        ),
+      };
+    });
+  },
+
+  addPane: (workspaceId) => {
+    set((state) => {
+      const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+      if (!id) return state;
+      const pane = { id: newId(), type: "terminal" as const };
+      return {
+        workspaces: state.workspaces.map((w) =>
+          w.id === id ? { ...w, panes: [...w.panes, pane] } : w
+        ),
+      };
+    });
+  },
+
+  removePane: (paneId, workspaceId) => {
+    set((state) => {
+      const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+      if (!id) return state;
+      return {
+        workspaces: state.workspaces.map((w) => {
+          if (w.id !== id) return w;
+          const remaining = w.panes.filter((p) => p.id !== paneId);
+          const panes = remaining.length > 0 ? remaining : [{ id: newId(), type: "terminal" as const }];
+          return { ...w, panes };
+        }),
+      };
+    });
+  },
+
+  setSessionId: (paneId, sessionId, shell, workspaceId) => {
+    set((state) => {
+      const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+      if (!id) return state;
+      return {
+        workspaces: state.workspaces.map((w) =>
+          w.id === id
+            ? {
+                ...w,
+                panes: w.panes.map((p) =>
+                  p.id === paneId ? { ...p, sessionId, shell } : p
+                ),
+              }
+            : w
+        ),
+      };
+    });
+  },
+
+  setActiveTerminal: (sessionId, workspaceId) => {
+    set((state) => {
+      const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+      if (!id) return state;
+      return {
+        workspaces: state.workspaces.map((w) =>
+          w.id === id ? { ...w, activeTerminalId: sessionId } : w
+        ),
+      };
+    });
+  },
+
+  activeCwd: () => {
+    const workspace = get().getActiveWorkspace();
+    if (!workspace) return undefined;
+    const project = workspace.projects.find((p) => p.id === workspace.activeProjectId);
+    return project?.root;
+  },
 }));

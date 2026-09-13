@@ -3,9 +3,24 @@ import { listen } from "@tauri-apps/api/event";
 
 export type PtyDataPayload = { id: string; chunk_b64: string };
 export type PtyExitPayload = { id: string; exit_code: number | null };
+export type PtySpawnResult = { id: string; shell: string };
 
-export function spawnPty(shell?: string, rows = 24, cols = 80) {
-  return invoke<string>("spawn_pty", { shell, rows, cols });
+export type GitStatusEntry = {
+  status: string;
+  path: string;
+  original_path: string | null;
+};
+
+export function gitStatus(path: string) {
+  return invoke<GitStatusEntry[]>("git_status_cmd", { path });
+}
+
+export function gitBranch(path: string) {
+  return invoke<string | null>("git_branch_cmd", { path });
+}
+
+export function spawnPty(shell?: string, rows = 24, cols = 80, cwd?: string) {
+  return invoke<PtySpawnResult>("spawn_pty", { shell, rows, cols, cwd });
 }
 
 export function writePty(id: string, data: string) {

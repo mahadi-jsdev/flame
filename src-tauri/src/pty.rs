@@ -19,6 +19,12 @@ pub struct PtyExitPayload {
     pub exit_code: Option<i32>,
 }
 
+#[derive(Clone, Serialize)]
+pub struct PtySpawnResult {
+    pub id: String,
+    pub shell: String,
+}
+
 pub struct PtyManager {
     sessions: Mutex<HashMap<String, PtySession>>,
     app: AppHandle,
@@ -43,7 +49,8 @@ impl PtyManager {
         shell: Option<String>,
         rows: u16,
         cols: u16,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+        cwd: Option<String>,
+    ) -> Result<PtySpawnResult, Box<dyn std::error::Error>> {
         let pty_system = native_pty_system();
         let pair = pty_system.openpty(PtySize {
             rows,
@@ -53,7 +60,11 @@ impl PtyManager {
         })?;
 
         let shell = shell.unwrap_or_else(default_shell);
-        let cmd = CommandBuilder::new(shell);
+        let shell_name = shell_name(&shell);
+        let mut cmd = CommandBuilder::new(&shell);
+        if let Some(cwd) = cwd {
+            cmd.cwd(cwd);
+        }
         let child = pair.slave.spawn_command(cmd)?;
         drop(pair.slave);
 
@@ -110,7 +121,7 @@ impl PtyManager {
             }
         });
 
-        Ok(id)
+        Ok(PtySpawnResult { id, shell: shell_name })
     }
 
     pub fn write(&self, id: &str, data: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -147,4 +158,12 @@ fn default_shell() -> String {
     return std::env::var("COMSPEC").unwrap_or_else(|_| "cmd".into());
 
     std::env::var("SHELL").unwrap_or_else(|_| "bash".into())
+}
+
+fn shell_name(path: &str) -> String {
+    std::path::Path::new(path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(path)
+        .to_string()
 }
