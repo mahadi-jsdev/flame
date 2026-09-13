@@ -11,7 +11,32 @@ import {
   Cpu,
   GripVertical,
   Settings,
+  Folder,
 } from "lucide-react";
+
+function shellBadge(shell: string) {
+  const s = shell.toLowerCase();
+  if (s.includes("fish"))
+    return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+  if (s.includes("zsh"))
+    return "bg-violet-500/15 text-violet-300 border-violet-500/30";
+  if (s.includes("bash"))
+    return "bg-lime-500/15 text-lime-300 border-lime-500/30";
+  if (s.includes("nu"))
+    return "bg-teal-500/15 text-teal-300 border-teal-500/30";
+  if (s.includes("pwsh") || s.includes("powershell"))
+    return "bg-sky-500/15 text-sky-300 border-sky-500/30";
+  return "bg-slate-500/15 text-slate-300 border-slate-500/30";
+}
+
+function baseName(path: string) {
+  return (
+    path
+      .split(/[\/\\]/)
+      .filter(Boolean)
+      .pop() ?? path
+  );
+}
 
 function getGridLayout(count: number) {
   if (count <= 1) return { cols: 1, rows: 1 };
@@ -177,8 +202,20 @@ export function Workspace() {
                     />
                     <span className="truncate">Terminal {index + 1}</span>
                     {pane.shell && (
-                      <span className="text-[10px] text-slate-500 font-mono border-l border-white/10 pl-2">
+                      <span
+                        className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium border ${shellBadge(pane.shell)}`}
+                        title={`Shell: ${pane.shell}`}
+                      >
                         {pane.shell}
+                      </span>
+                    )}
+                    {pane.cwd && (
+                      <span
+                        className="hidden md:inline-flex items-center gap-1 text-[10px] text-slate-500 font-mono max-w-[160px] min-w-0"
+                        title={pane.cwd}
+                      >
+                        <Folder size={10} className="shrink-0" />
+                        <span className="truncate">{baseName(pane.cwd)}</span>
                       </span>
                     )}
                     {isActive && (
@@ -219,7 +256,10 @@ export function Workspace() {
                   <Terminal size={13} className="shrink-0 text-cyan-400" />
                   <span className="truncate">{pane.title ?? "Terminal"}</span>
                   {pane.shell && (
-                    <span className="text-[10px] text-slate-500 font-mono border-l border-white/10 pl-2">
+                    <span
+                      className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium border ${shellBadge(pane.shell)}`}
+                      title={`Shell: ${pane.shell}`}
+                    >
                       {pane.shell}
                     </span>
                   )}

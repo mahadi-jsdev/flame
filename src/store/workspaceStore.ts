@@ -29,6 +29,7 @@ export interface Pane {
   type: PaneType;
   sessionId?: string;
   shell?: string;
+  cwd?: string;
   startupCommand?: string;
   overlay?: boolean;
   title?: string;
@@ -65,7 +66,7 @@ interface WorkspaceState {
   swapPanes: (aId: string, bId: string, workspaceId?: string) => void;
   removePane: (paneId: string, workspaceId?: string) => void;
   clearPaneStartupCommand: (paneId: string, workspaceId?: string) => void;
-  setSessionId: (paneId: string, sessionId: string, shell?: string, workspaceId?: string) => void;
+  setSessionId: (paneId: string, sessionId: string, shell?: string, cwd?: string, workspaceId?: string) => void;
   setActiveTerminal: (sessionId: string, workspaceId?: string) => void;
 
   activeCwd: () => string | undefined;
@@ -289,7 +290,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         });
       },
 
-      setSessionId: (paneId, sessionId, shell, workspaceId) => {
+      setSessionId: (paneId, sessionId, shell, cwd, workspaceId) => {
         set((state) => {
           const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
           if (!id) return state;
@@ -299,7 +300,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 ? {
                   ...w,
                   panes: w.panes.map((p) =>
-                    p.id === paneId ? { ...p, sessionId, shell } : p
+                    p.id === paneId ? { ...p, sessionId, shell, cwd } : p
                   ),
                 }
                 : w

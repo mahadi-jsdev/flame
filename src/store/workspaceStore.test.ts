@@ -164,15 +164,21 @@ describe("panes", () => {
   it("removePane clears activeTerminalId when it was active", () => {
     store().addPane("w1");
     const p2 = w1().panes[1];
-    store().setSessionId(p2.id, "sess-2", undefined, "w1");
+    store().setSessionId(p2.id, "sess-2", undefined, undefined, "w1");
     store().setActiveTerminal("sess-2");
     store().removePane(p2.id);
     expect(w1().activeTerminalId).toBeNull();
   });
 
   it("setSessionId records session", () => {
-    store().setSessionId("p1", "abc", undefined, "w1");
+    store().setSessionId("p1", "abc", undefined, undefined, "w1");
     expect(w1().panes[0].sessionId).toBe("abc");
+  });
+
+  it("setSessionId records shell and cwd", () => {
+    store().setSessionId("p1", "abc", "fish", "/repo/proj", "w1");
+    expect(w1().panes[0].shell).toBe("fish");
+    expect(w1().panes[0].cwd).toBe("/repo/proj");
   });
 
   it("setActiveTerminal sets active id", () => {

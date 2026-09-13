@@ -102,7 +102,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
         const cwd = useWorkspaceStore.getState().activeCwd();
         const { id, shell } = await spawnPty(undefined, rows, cols, cwd);
         sessionIdRef.current = id;
-        useWorkspaceStore.getState().setSessionId(paneId, id, shell);
+        useWorkspaceStore.getState().setSessionId(paneId, id, shell, cwd);
         useWorkspaceStore.getState().setActiveTerminal(id);
 
         const pane = useWorkspaceStore
