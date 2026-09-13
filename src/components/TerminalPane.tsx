@@ -102,6 +102,15 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
         useWorkspaceStore.getState().setSessionId(paneId, id, shell);
         useWorkspaceStore.getState().setActiveTerminal(id);
 
+        const startupCommand = useWorkspaceStore
+          .getState()
+          .workspaces.flatMap((w) => w.panes)
+          .find((p) => p.id === paneId)?.startupCommand;
+        if (startupCommand) {
+          writePty(id, `${startupCommand}\n`).catch(console.error);
+          useWorkspaceStore.getState().clearPaneStartupCommand(paneId);
+        }
+
         divRef.current?.addEventListener("mousedown", makeActive);
 
         term.onData((data) => {
@@ -115,7 +124,9 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
         const unlistenDataPromise = onPtyData((payload) => {
           if (payload.id !== id) return;
           const bytes = new Uint8Array(
-            atob(payload.chunk_b64).split("").map((c) => c.charCodeAt(0))
+            atob(payload.chunk_b64)
+              .split("")
+              .map((c) => c.charCodeAt(0)),
           );
           term.write(bytes);
         });

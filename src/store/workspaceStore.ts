@@ -19,6 +19,7 @@ export interface Pane {
   type: PaneType;
   sessionId?: string;
   shell?: string;
+  startupCommand?: string;
 }
 
 export interface Workspace {
@@ -45,8 +46,9 @@ interface WorkspaceState {
   removeProject: (projectId: string, workspaceId?: string) => void;
   setActiveProject: (projectId: string, workspaceId?: string) => void;
 
-  addPane: (workspaceId?: string) => void;
+  addPane: (workspaceId?: string, startupCommand?: string) => void;
   removePane: (paneId: string, workspaceId?: string) => void;
+  clearPaneStartupCommand: (paneId: string, workspaceId?: string) => void;
   setSessionId: (paneId: string, sessionId: string, shell?: string, workspaceId?: string) => void;
   setActiveTerminal: (sessionId: string, workspaceId?: string) => void;
 
@@ -134,10 +136,10 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         workspaces: state.workspaces.map((w) =>
           w.id === id
             ? {
-                ...w,
-                projects: [...w.projects, project],
-                activeProjectId: w.activeProjectId ?? project.id,
-              }
+              ...w,
+              projects: [...w.projects, project],
+              activeProjectId: w.activeProjectId ?? project.id,
+            }
             : w
         ),
       };
@@ -174,14 +176,33 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     });
   },
 
-  addPane: (workspaceId) => {
+  addPane: (workspaceId, startupCommand) => {
     set((state) => {
       const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
       if (!id) return state;
-      const pane = { id: newId(), type: "terminal" as const };
+      const pane: Pane = { id: newId(), type: "terminal" as const, startupCommand };
       return {
         workspaces: state.workspaces.map((w) =>
           w.id === id ? { ...w, panes: [...w.panes, pane] } : w
+        ),
+      };
+    });
+  },
+
+  clearPaneStartupCommand: (paneId, workspaceId) => {
+    set((state) => {
+      const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+      if (!id) return state;
+      return {
+        workspaces: state.workspaces.map((w) =>
+          w.id === id
+            ? {
+              ...w,
+              panes: w.panes.map((p) =>
+                p.id === paneId ? { ...p, startupCommand: undefined } : p
+              ),
+            }
+            : w
         ),
       };
     });
@@ -210,11 +231,11 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         workspaces: state.workspaces.map((w) =>
           w.id === id
             ? {
-                ...w,
-                panes: w.panes.map((p) =>
-                  p.id === paneId ? { ...p, sessionId, shell } : p
-                ),
-              }
+              ...w,
+              panes: w.panes.map((p) =>
+                p.id === paneId ? { ...p, sessionId, shell } : p
+              ),
+            }
             : w
         ),
       };

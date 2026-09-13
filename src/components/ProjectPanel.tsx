@@ -1,22 +1,42 @@
 import { useEffect, useMemo, useState } from "react";
 import { useWorkspaceStore } from "../store/workspaceStore";
-import { gitBranch, gitStatus, writePty, GitStatusEntry } from "../lib/tauri";
-import { File, Folder, FolderOpen, RefreshCw, GitBranch, Plus, X } from "lucide-react";
+import { gitBranch, gitStatus, GitStatusEntry } from "../lib/tauri";
+import {
+  File,
+  Folder,
+  FolderOpen,
+  RefreshCw,
+  GitBranch,
+  Plus,
+  X,
+} from "lucide-react";
 
 type Tab = "files" | "git";
 
 function projectName(root: string) {
-  return root.split(/[\/\\]/).filter(Boolean).pop() ?? root;
+  return (
+    root
+      .split(/[\/\\]/)
+      .filter(Boolean)
+      .pop() ?? root
+  );
 }
 
 function statusColor(status: string) {
-  if (status === "??") return "bg-slate-500/20 text-slate-400 border-slate-500/30";
-  if (status === "!!") return "bg-slate-500/20 text-slate-400 border-slate-500/30";
-  if (status[0] === "A" || status[1] === "A") return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
-  if (status[0] === "D" || status[1] === "D") return "bg-rose-500/20 text-rose-300 border-rose-500/30";
-  if (status[0] === "M" || status[1] === "M") return "bg-amber-500/20 text-amber-300 border-amber-500/30";
-  if (status[0] === "R" || status[1] === "R") return "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
-  if (status[0] === "C" || status[1] === "C") return "bg-violet-500/20 text-violet-300 border-violet-500/30";
+  if (status === "??")
+    return "bg-slate-500/20 text-slate-400 border-slate-500/30";
+  if (status === "!!")
+    return "bg-slate-500/20 text-slate-400 border-slate-500/30";
+  if (status[0] === "A" || status[1] === "A")
+    return "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+  if (status[0] === "D" || status[1] === "D")
+    return "bg-rose-500/20 text-rose-300 border-rose-500/30";
+  if (status[0] === "M" || status[1] === "M")
+    return "bg-amber-500/20 text-amber-300 border-amber-500/30";
+  if (status[0] === "R" || status[1] === "R")
+    return "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
+  if (status[0] === "C" || status[1] === "C")
+    return "bg-violet-500/20 text-violet-300 border-violet-500/30";
   return "bg-slate-500/20 text-slate-400 border-slate-500/30";
 }
 
@@ -25,16 +45,16 @@ function quotedShell(s: string) {
 }
 
 function openGitDiffInTerminal(path: string, status: string, root: string) {
-  const workspace = useWorkspaceStore.getState().getActiveWorkspace();
-  const sessionId = workspace?.activeTerminalId;
-  if (!sessionId) return;
+  const store = useWorkspaceStore.getState();
+  const workspace = store.getActiveWorkspace();
+  if (!workspace) return;
   const qPath = quotedShell(path);
   const qRoot = quotedShell(root);
-  const cmd =
+  const diffCmd =
     status === "??"
-      ? `git -C ${qRoot} diff --no-index /dev/null ${qPath} | vim -c 'set ft=diff' -; true`
-      : `git -C ${qRoot} diff HEAD -- ${qPath} | vim -c 'set ft=diff' -`;
-  writePty(sessionId, `${cmd}\n`).catch(console.error);
+      ? `git -C ${qRoot} diff --color=always --no-index /dev/null ${qPath} | { command -v diff-so-fancy >/dev/null 2>&1 && diff-so-fancy || cat; } | less --tabs=4 -RFX; true`
+      : `git -C ${qRoot} diff --color=always HEAD -- ${qPath} | { command -v diff-so-fancy >/dev/null 2>&1 && diff-so-fancy || cat; } | less --tabs=4 -RFX`;
+  store.addPane(workspace.id, `sh -c ${quotedShell(diffCmd)}`);
 }
 
 function statusLabel(status: string) {
@@ -49,10 +69,10 @@ function statusLabel(status: string) {
     "A ": "staged add",
     " D": "deleted",
     "D ": "staged del",
-    "MM": "staged + modified",
-    "AM": "added + modified",
-    "RM": "renamed + modified",
-    "CM": "copied + modified",
+    MM: "staged + modified",
+    AM: "added + modified",
+    RM: "renamed + modified",
+    CM: "copied + modified",
   };
   return (map[status] ?? status.trim()) || "unchanged";
 }
@@ -61,7 +81,7 @@ export function ProjectPanel() {
   const store = useWorkspaceStore();
   const workspace = store.getActiveWorkspace();
   const project = workspace?.projects.find(
-    (p) => p.id === workspace.activeProjectId
+    (p) => p.id === workspace.activeProjectId,
   );
 
   const [tab, setTab] = useState<Tab>("files");
@@ -103,20 +123,15 @@ export function ProjectPanel() {
     const { invoke } = await import("@tauri-apps/api/core");
     const path = await open({ directory: true });
     if (typeof path !== "string") return;
-    const list = await invoke<{ name: string; path: string; is_dir: boolean }[]>(
-      "list_dir",
-      { path }
-    );
+    const list = await invoke<
+      { name: string; path: string; is_dir: boolean }[]
+    >("list_dir", { path });
     store.addProject(path, list);
   };
 
   const grouped = useMemo(() => {
-    const staged = entries.filter((e) =>
-      "MACRD".includes(e.status[0])
-    );
-    const unstaged = entries.filter((e) =>
-      "MACRD".includes(e.status[1])
-    );
+    const staged = entries.filter((e) => "MACRD".includes(e.status[0]));
+    const unstaged = entries.filter((e) => "MACRD".includes(e.status[1]));
     const untracked = entries.filter((e) => e.status === "??");
     return { staged, unstaged, untracked };
   }, [entries]);
@@ -252,9 +267,7 @@ export function ProjectPanel() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm text-slate-300">
                 <GitBranch size={14} className="text-violet-400" />
-                <span className="font-mono">
-                  {branch ?? "no branch"}
-                </span>
+                <span className="font-mono">{branch ?? "no branch"}</span>
               </div>
               <button
                 onClick={refreshGit}
@@ -262,7 +275,10 @@ export function ProjectPanel() {
                 className="p-1.5 rounded-md text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 transition-all disabled:opacity-50"
                 title="Refresh git status"
               >
-                <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+                <RefreshCw
+                  size={12}
+                  className={loading ? "animate-spin" : ""}
+                />
               </button>
             </div>
 
@@ -331,11 +347,11 @@ function GitGroup({
             key={e.path}
             onClick={() => openGitDiffInTerminal(e.path, e.status, root)}
             className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-slate-900/40 border border-white/5 hover:bg-slate-800/60 transition-colors cursor-pointer"
-            title="Open git diff in active terminal"
+            title="Open git diff in a new terminal"
           >
             <span
               className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border font-medium ${statusColor(
-                e.status
+                e.status,
               )}`}
               title={statusLabel(e.status)}
             >
@@ -345,7 +361,9 @@ function GitGroup({
             <span className="text-xs text-slate-300 truncate flex-1 min-w-0">
               {e.original_path ? (
                 <>
-                  <span className="text-slate-500 line-through">{e.original_path}</span>
+                  <span className="text-slate-500 line-through">
+                    {e.original_path}
+                  </span>
                   {" → "}
                   {e.path}
                 </>
