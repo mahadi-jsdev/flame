@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useWorkspaceStore } from "../store/workspaceStore";
 import { Sidebar } from "./Sidebar";
 import { TerminalPane } from "./TerminalPane";
@@ -34,6 +34,9 @@ export function Workspace() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [store]);
+
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   const { cols, rows } = getGridLayout(count);
   const allCount = store.workspaces.length;
@@ -92,12 +95,51 @@ export function Workspace() {
         >
           {panes.map((pane, index) => {
             const isActive = pane.sessionId === activeTerminalId;
+            const isDragging = dragId === pane.id;
+            const isDropTarget = dropTargetId === pane.id && !isDragging;
             return (
               <div
                 key={pane.id}
-                className="terminal-card min-h-0 h-full w-full flex flex-col rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-sm shadow-2xl shadow-black/40 overflow-hidden hover:border-cyan-500/20 hover:shadow-[0_0_30px_rgba(34,211,238,0.08)] transition-all duration-300"
+                onDragOver={(e) => {
+                  if (!dragId || dragId === pane.id) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  setDropTargetId(pane.id);
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setDropTargetId(null);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const src = e.dataTransfer.getData("application/x-pane-id");
+                  if (src && src !== pane.id) store.swapPanes(src, pane.id);
+                  setDragId(null);
+                  setDropTargetId(null);
+                }}
+                className={`terminal-card min-h-0 h-full w-full flex flex-col rounded-2xl border bg-slate-900/60 backdrop-blur-sm shadow-2xl shadow-black/40 overflow-hidden transition-all duration-300 ${
+                  isDropTarget
+                    ? "border-cyan-400/60 shadow-[0_0_30px_rgba(34,211,238,0.2)]"
+                    : "border-white/10 hover:border-cyan-500/20 hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]"
+                } ${isDragging ? "opacity-40" : ""}`}
               >
-                <div className="h-10 shrink-0 flex items-center justify-between px-3 bg-slate-900/80 border-b border-white/10">
+                <div
+                  draggable={count > 1}
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("application/x-pane-id", pane.id);
+                    e.dataTransfer.effectAllowed = "move";
+                    setDragId(pane.id);
+                  }}
+                  onDragEnd={() => {
+                    setDragId(null);
+                    setDropTargetId(null);
+                  }}
+                  className={`h-10 shrink-0 flex items-center justify-between px-3 bg-slate-900/80 border-b border-white/10 ${
+                    count > 1 ? "cursor-grab active:cursor-grabbing" : ""
+                  }`}
+                  title={count > 1 ? "Drag to rearrange" : undefined}
+                >
                   <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
                     <Terminal size={13} className="text-cyan-400" />
                     <span>Terminal {index + 1}</span>

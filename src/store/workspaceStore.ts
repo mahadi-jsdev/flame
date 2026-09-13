@@ -43,6 +43,7 @@ interface WorkspaceState {
 
   addPane: (workspaceId?: string, startupCommand?: string) => void;
   addOverlayPane: (command: string, title: string, workspaceId?: string) => void;
+  swapPanes: (aId: string, bId: string, workspaceId?: string) => void;
   removePane: (paneId: string, workspaceId?: string) => void;
   clearPaneStartupCommand: (paneId: string, workspaceId?: string) => void;
   setSessionId: (paneId: string, sessionId: string, shell?: string, workspaceId?: string) => void;
@@ -202,6 +203,24 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
             ? { ...w, panes: [...w.panes.filter((p) => !p.overlay), pane] }
             : w
         ),
+      };
+    });
+  },
+
+  swapPanes: (aId, bId, workspaceId) => {
+    set((state) => {
+      const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+      if (!id) return state;
+      return {
+        workspaces: state.workspaces.map((w) => {
+          if (w.id !== id) return w;
+          const i = w.panes.findIndex((p) => p.id === aId);
+          const j = w.panes.findIndex((p) => p.id === bId);
+          if (i === -1 || j === -1 || i === j) return w;
+          const panes = [...w.panes];
+          [panes[i], panes[j]] = [panes[j], panes[i]];
+          return { ...w, panes };
+        }),
       };
     });
   },
