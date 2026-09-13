@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useWorkspaceStore } from "../store/workspaceStore";
 import { Sidebar } from "./Sidebar";
 import { TerminalPane } from "./TerminalPane";
@@ -7,6 +8,31 @@ import { Group, Panel, Separator } from "react-resizable-panels";
 
 export function Workspace() {
   const { panes, addPane, removePane } = useWorkspaceStore();
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const ctrlOrCmd = e.ctrlKey || e.metaKey;
+      if (!ctrlOrCmd || !e.shiftKey) return;
+
+      switch (e.key.toLowerCase()) {
+        case "t":
+          e.preventDefault();
+          addPane("terminal");
+          break;
+        case "c":
+          e.preventDefault();
+          addPane("chat");
+          break;
+        case "b":
+          e.preventDefault();
+          addPane("browser");
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [addPane]);
 
   return (
     <div className="h-screen w-screen bg-slate-950 text-slate-100 flex overflow-hidden">
