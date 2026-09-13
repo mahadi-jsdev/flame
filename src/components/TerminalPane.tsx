@@ -102,13 +102,15 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
         useWorkspaceStore.getState().setSessionId(paneId, id, shell);
         useWorkspaceStore.getState().setActiveTerminal(id);
 
-        const startupCommand = useWorkspaceStore
+        const pane = useWorkspaceStore
           .getState()
           .workspaces.flatMap((w) => w.panes)
-          .find((p) => p.id === paneId)?.startupCommand;
-        if (startupCommand) {
-          writePty(id, `${startupCommand}\n`).catch(console.error);
-          useWorkspaceStore.getState().clearPaneStartupCommand(paneId);
+          .find((p) => p.id === paneId);
+        if (pane?.startupCommand) {
+          writePty(id, `${pane.startupCommand}\n`).catch(console.error);
+          if (!pane.overlay) {
+            useWorkspaceStore.getState().clearPaneStartupCommand(paneId);
+          }
         }
 
         divRef.current?.addEventListener("mousedown", makeActive);

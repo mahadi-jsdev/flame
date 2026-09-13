@@ -65,14 +65,22 @@ function openGitDiffInTerminal(path: string, status: string, root: string) {
     status === "??"
       ? `git -C ${qRoot} diff --color=always --no-index /dev/null ${qPath} | ${pager}; true`
       : `git -C ${qRoot} diff --color=always HEAD -- ${qPath} | ${pager}`;
-  store.addPane(workspace.id, `sh -c ${quotedShell(diffCmd)}`);
+  store.addOverlayPane(
+    `sh -c ${quotedShell(diffCmd)}`,
+    `diff: ${path.split("/").pop()}`,
+    workspace.id,
+  );
 }
 
 function openLazygit(root: string) {
   const store = useWorkspaceStore.getState();
   const workspace = store.getActiveWorkspace();
   if (!workspace) return;
-  store.addPane(workspace.id, `lazygit -p ${quotedShell(root)}`);
+  store.addOverlayPane(
+    `lazygit -p ${quotedShell(root)}`,
+    "lazygit",
+    workspace.id,
+  );
 }
 
 function statusLabel(status: string) {
@@ -488,7 +496,7 @@ function DirTree({
           }
           className="flex items-center gap-2 py-1.5 pr-2 rounded-md hover:bg-slate-800/60 transition-colors cursor-pointer"
           style={{ paddingLeft: `${depth * 14 + 21}px` }}
-          title="Open git diff in a new terminal"
+          title="Open git diff"
         >
           <File size={13} className="shrink-0 text-cyan-400" />
           <span className="text-xs text-slate-300 truncate flex-1 min-w-0">

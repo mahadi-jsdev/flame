@@ -15,7 +15,8 @@ function getGridLayout(count: number) {
 export function Workspace() {
   const store = useWorkspaceStore();
   const workspace = store.getActiveWorkspace();
-  const panes = workspace?.panes ?? [];
+  const panes = workspace?.panes.filter((p) => !p.overlay) ?? [];
+  const overlayPanes = workspace?.panes.filter((p) => p.overlay) ?? [];
   const count = panes.length;
   const activeTerminalId = workspace?.activeTerminalId ?? null;
 
@@ -39,7 +40,7 @@ export function Workspace() {
   const label = workspace ? workspace.name : "Workspace";
 
   const activeIndex = panes.findIndex((p) => p.sessionId === activeTerminalId);
-  const activeNumber = activeIndex >= 0 ? activeIndex + 1 : count > 0 ? 1 : 0;
+  const activeNumber = activeIndex >= 0 ? activeIndex + 1 : 0;
 
   return (
     <div className="h-screen w-screen flex overflow-hidden bg-[#05070a] text-slate-100 selection:bg-cyan-500/30 font-sans antialiased">
@@ -58,7 +59,8 @@ export function Workspace() {
                 {label}
               </span>
               <span className="text-[10px] text-slate-400 mt-0.5">
-                {count} terminal{count === 1 ? "" : "s"} · {allCount} workspace{allCount === 1 ? "" : "s"}
+                {count} terminal{count === 1 ? "" : "s"} · {allCount} workspace
+                {allCount === 1 ? "" : "s"}
               </span>
             </div>
           </div>
@@ -126,6 +128,37 @@ export function Workspace() {
             );
           })}
         </main>
+
+        {overlayPanes.map((pane) => (
+          <div
+            key={pane.id}
+            className="absolute inset-0 z-20 p-3 bg-black/70 backdrop-blur-sm"
+          >
+            <div className="h-full w-full flex flex-col rounded-2xl border border-white/15 bg-slate-900/80 shadow-2xl shadow-black/60 overflow-hidden">
+              <div className="h-10 shrink-0 flex items-center justify-between px-4 bg-slate-900/80 border-b border-white/10">
+                <div className="flex items-center gap-2 min-w-0 text-xs font-medium text-slate-300">
+                  <Terminal size={13} className="shrink-0 text-cyan-400" />
+                  <span className="truncate">{pane.title ?? "Terminal"}</span>
+                  {pane.shell && (
+                    <span className="text-[10px] text-slate-500 font-mono border-l border-white/10 pl-2">
+                      {pane.shell}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => store.removePane(pane.id)}
+                  className="p-1.5 rounded-md text-slate-500 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
+                  title="Close"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 relative bg-[#080c14]">
+                <TerminalPane paneId={pane.id} />
+              </div>
+            </div>
+          </div>
+        ))}
 
         <footer className="h-7 shrink-0 px-5 flex items-center justify-between text-[11px] text-slate-500 bg-slate-950/60 backdrop-blur border-t border-white/10">
           <span className="flex items-center gap-1.5">

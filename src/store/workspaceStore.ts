@@ -13,6 +13,8 @@ export interface Pane {
   sessionId?: string;
   shell?: string;
   startupCommand?: string;
+  overlay?: boolean;
+  title?: string;
 }
 
 export interface Workspace {
@@ -40,6 +42,7 @@ interface WorkspaceState {
   setActiveProject: (projectId: string, workspaceId?: string) => void;
 
   addPane: (workspaceId?: string, startupCommand?: string) => void;
+  addOverlayPane: (command: string, title: string, workspaceId?: string) => void;
   removePane: (paneId: string, workspaceId?: string) => void;
   clearPaneStartupCommand: (paneId: string, workspaceId?: string) => void;
   setSessionId: (paneId: string, sessionId: string, shell?: string, workspaceId?: string) => void;
@@ -177,6 +180,27 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
       return {
         workspaces: state.workspaces.map((w) =>
           w.id === id ? { ...w, panes: [...w.panes, pane] } : w
+        ),
+      };
+    });
+  },
+
+  addOverlayPane: (command, title, workspaceId) => {
+    set((state) => {
+      const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+      if (!id) return state;
+      const pane: Pane = {
+        id: newId(),
+        type: "terminal" as const,
+        startupCommand: command,
+        overlay: true,
+        title,
+      };
+      return {
+        workspaces: state.workspaces.map((w) =>
+          w.id === id
+            ? { ...w, panes: [...w.panes.filter((p) => !p.overlay), pane] }
+            : w
         ),
       };
     });
