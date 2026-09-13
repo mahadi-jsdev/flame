@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   defaultSettings,
   useWorkspaceStore,
@@ -269,5 +269,28 @@ describe("settings", () => {
     const saved = JSON.parse(raw!);
     expect(saved.state.settings.fontSize).toBe(16);
     expect(saved.state.workspaces).toBeUndefined();
+  });
+
+  it("updateSettings supports the AI fields", () => {
+    store().updateSettings({ openaiApiKey: "sk-x", commitModel: "gpt-4o" });
+    expect(store().settings.openaiApiKey).toBe("sk-x");
+    expect(store().settings.commitModel).toBe("gpt-4o");
+  });
+
+  it("rehydrates persisted settings, keeping defaults for missing keys", async () => {
+    localStorage.setItem(
+      "ai-terminal-agent-settings",
+      JSON.stringify({
+        state: { settings: { fontSize: 19 } },
+        version: 0,
+      }),
+    );
+    vi.resetModules();
+    const mod = await import("./workspaceStore");
+    const s = mod.useWorkspaceStore.getState();
+    expect(s.settings.fontSize).toBe(19);
+    expect(s.settings.cursorStyle).toBe("bar");
+    expect(s.settings.diffViewer).toBe("auto");
+    expect(s.workspaces).toHaveLength(1);
   });
 });

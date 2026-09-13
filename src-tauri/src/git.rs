@@ -375,6 +375,57 @@ mod tests {
     fn git_status_errors_outside_repo() {
         assert!(git_status("/definitely/not/a/repo").is_err());
     }
+
+    #[test]
+    fn stage_all_then_commit() {
+        let r = TestRepo::new();
+        r.write("a.txt", "hi");
+        r.commit_all();
+        r.write("a.txt", "changed");
+        r.write("new.txt", "new");
+        git_stage_all(r.path()).unwrap();
+        let stat = git_diff_stat(r.path()).unwrap();
+        assert!(stat.contains("a.txt"));
+        assert!(stat.contains("new.txt"));
+        git_commit(r.path(), "test commit").unwrap();
+        assert!(git_status(r.path()).unwrap().is_empty());
+        let out = Command::new("git")
+            .arg("-C")
+            .arg(&r.0)
+            .args(["log", "-1", "--format=%s"])
+            .output()
+            .unwrap();
+        assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "test commit");
+    }
+
+    #[test]
+    fn diff_staged_truncates() {
+        let r = TestRepo::new();
+        r.write("a.txt", "hi");
+        r.commit_all();
+        let big = "x".repeat(5000);
+        r.write("a.txt", &big);
+        r.run(&["add", "a.txt"]);
+        let diff = git_diff_staged(r.path(), 100).unwrap();
+        assert!(diff.chars().count() <= 100);
+    }
+
+    #[test]
+    fn diff_stat_empty_when_nothing_staged() {
+        let r = TestRepo::new();
+        r.write("a.txt", "hi");
+        r.commit_all();
+        r.write("a.txt", "dirty"); // unstaged only
+        assert!(git_diff_stat(r.path()).unwrap().trim().is_empty());
+    }
+
+    #[test]
+    fn commit_without_staged_changes_errors() {
+        let r = TestRepo::new();
+        r.write("a.txt", "hi");
+        r.commit_all();
+        assert!(git_commit(r.path(), "nothing").is_err());
+    }
 }
 
 fn run_git(path: &str, args: &[&str]) -> Result<String, String> {

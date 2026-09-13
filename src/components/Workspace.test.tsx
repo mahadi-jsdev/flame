@@ -109,6 +109,37 @@ describe("Workspace shell", () => {
     expect(ids).toEqual([t2, t1]);
   });
 
+  it("shows shell chip and cwd for spawned panes", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? {
+              ...w,
+              panes: [
+                {
+                  id: "p1",
+                  type: "terminal" as const,
+                  sessionId: "s1",
+                  shell: "fish",
+                  cwd: "/home/u/projects/myproj",
+                },
+              ],
+            }
+          : w,
+      ),
+    }));
+    render(<Workspace />);
+    expect(screen.getByTitle("Shell: fish")).toBeInTheDocument();
+    expect(screen.getByText("fish")).toBeInTheDocument();
+    expect(screen.getByTitle("/home/u/projects/myproj")).toBeInTheDocument();
+    expect(screen.getByText("myproj")).toBeInTheDocument();
+  });
+
+  it("hides cwd chip when pane has no cwd", () => {
+    render(<Workspace />);
+    expect(screen.queryByTitle(/^\//)).not.toBeInTheDocument();
+  });
+
   it("settings gear opens dialog", () => {
     render(<Workspace />);
     fireEvent.click(screen.getByTitle("Settings"));

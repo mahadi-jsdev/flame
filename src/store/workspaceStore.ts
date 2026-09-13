@@ -335,6 +335,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     {
       name: "ai-terminal-agent-settings",
       partialize: (s) => ({ settings: s.settings }),
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<WorkspaceState>;
+        return {
+          ...current,
+          ...p,
+          settings: { ...defaultSettings, ...p.settings },
+        };
+      },
     },
   ),
 );
