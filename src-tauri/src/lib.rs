@@ -2,6 +2,8 @@ mod git;
 mod pty;
 
 use git::{git_branch, git_branches, git_checkout, git_root, git_status, GitStatusEntry};
+
+mod openai;
 use pty::{PtyManager, PtySpawnResult};
 use tauri::Manager;
 
@@ -61,6 +63,31 @@ fn git_root_cmd(path: String) -> Result<String, String> {
     git_root(&path)
 }
 
+#[tauri::command]
+async fn git_auto_commit_cmd(
+    path: String,
+    api_key: String,
+    model: Option<String>,
+) -> Result<String, String> {
+    let api_key = if api_key.trim().is_empty() {
+        std::env::var("OPENAI_API_KEY")
+            .map_err(|_| "no OpenAI API key configured".to_string())?
+    } else {
+        api_key
+    };
+
+    git::git_stage_all(&path)?;
+    let stat = git::git_diff_stat(&path)?;
+    if stat.trim().is_empty() {
+        return Err("nothing to commit".into());
+    }
+    let diff = git::git_diff_staged(&path, 12_000)?;
+    let model = model.filter(|m| !m.trim().is_empty()).unwrap_or_else(|| "gpt-4o-mini".into());
+    let message = openai::commit_message(&stat, &diff, &api_key, &model).await?;
+    git::git_commit(&path, &message)?;
+    Ok(message)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -79,7 +106,8 @@ pub fn run() {
             git_branch_cmd,
             git_branches_cmd,
             git_checkout_cmd,
-            git_root_cmd
+            git_root_cmd,
+            git_auto_commit_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

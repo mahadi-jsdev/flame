@@ -377,6 +377,38 @@ mod tests {
     }
 }
 
+fn run_git(path: &str, args: &[&str]) -> Result<String, String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(path)
+        .args(args)
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+pub fn git_stage_all(path: &str) -> Result<(), String> {
+    run_git(path, &["add", "-A"])?;
+    Ok(())
+}
+
+pub fn git_diff_stat(path: &str) -> Result<String, String> {
+    run_git(path, &["diff", "--cached", "--stat"])
+}
+
+pub fn git_diff_staged(path: &str, max_chars: usize) -> Result<String, String> {
+    let diff = run_git(path, &["diff", "--cached", "--no-color", "-U2"])?;
+    Ok(diff.chars().take(max_chars).collect())
+}
+
+pub fn git_commit(path: &str, message: &str) -> Result<(), String> {
+    run_git(path, &["commit", "-m", message])?;
+    Ok(())
+}
+
 pub fn git_root(path: &str) -> Result<String, String> {
     let output = Command::new("git")
         .arg("-C")

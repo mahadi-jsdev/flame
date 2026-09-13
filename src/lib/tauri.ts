@@ -31,6 +31,10 @@ export function gitRoot(path: string) {
   return invoke<string>("git_root_cmd", { path });
 }
 
+export function gitAutoCommit(path: string, apiKey: string, model?: string) {
+  return invoke<string>("git_auto_commit_cmd", { path, apiKey, model });
+}
+
 export function spawnPty(shell?: string, rows = 24, cols = 80, cwd?: string) {
   return invoke<PtySpawnResult>("spawn_pty", { shell, rows, cols, cwd });
 }

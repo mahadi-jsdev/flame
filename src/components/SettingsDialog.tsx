@@ -15,7 +15,9 @@ function Row({
     <div className="flex items-center justify-between gap-4 py-3">
       <div className="min-w-0">
         <div className="text-xs font-medium text-slate-200">{label}</div>
-        {hint && <div className="text-[10px] text-slate-500 mt-0.5">{hint}</div>}
+        {hint && (
+          <div className="text-[10px] text-slate-500 mt-0.5">{hint}</div>
+        )}
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -94,9 +96,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 max={20}
                 step={1}
                 value={settings.fontSize}
-                onChange={(e) =>
-                  update({ fontSize: Number(e.target.value) })
-                }
+                onChange={(e) => update({ fontSize: Number(e.target.value) })}
                 className="w-24 accent-cyan-400"
               />
               <span className="w-6 text-right text-[11px] font-mono text-slate-300">
@@ -156,6 +156,29 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 { value: "diff-so-fancy", label: "DSF" },
                 { value: "plain", label: "Plain" },
               ]}
+            />
+          </Row>
+
+          <Row label="OpenAI API key" hint="Used for AI auto-commit">
+            <input
+              type="password"
+              value={settings.openaiApiKey}
+              onChange={(e) => update({ openaiApiKey: e.target.value })}
+              placeholder="sk-..."
+              spellCheck={false}
+              autoComplete="off"
+              className="w-40 bg-slate-950/80 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-slate-200 placeholder:text-slate-600 outline-none focus:border-cyan-500/40"
+            />
+          </Row>
+
+          <Row label="Commit model" hint="OpenAI model for commit messages">
+            <input
+              type="text"
+              value={settings.commitModel}
+              onChange={(e) => update({ commitModel: e.target.value })}
+              placeholder="gpt-4o-mini"
+              spellCheck={false}
+              className="w-40 bg-slate-950/80 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-slate-200 placeholder:text-slate-600 outline-none focus:border-cyan-500/40"
             />
           </Row>
         </div>

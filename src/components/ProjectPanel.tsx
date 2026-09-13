@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useWorkspaceStore } from "../store/workspaceStore";
 import {
+  gitAutoCommit,
   gitBranch,
   gitBranches,
   gitCheckout,
@@ -25,8 +26,10 @@ import {
   Folder,
   FolderOpen,
   GitBranch,
+  Loader2,
   Plus,
   RefreshCw,
+  Sparkles,
   SquareTerminal,
   X,
 } from "lucide-react";
@@ -67,6 +70,8 @@ export function ProjectPanel() {
   const [showBranches, setShowBranches] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
+  const [aiCommitting, setAiCommitting] = useState(false);
+  const [lastCommit, setLastCommit] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const refreshGit = async () => {
@@ -137,6 +142,30 @@ export function ProjectPanel() {
       setError(String(e));
     }
     await refreshGit();
+  };
+
+  const autoCommit = async () => {
+    if (!project) return;
+    const { openaiApiKey, commitModel } = useWorkspaceStore.getState().settings;
+    if (!openaiApiKey.trim()) {
+      setError("Set an OpenAI API key in Settings to use AI auto-commit");
+      return;
+    }
+    setAiCommitting(true);
+    setError(null);
+    try {
+      const msg = await gitAutoCommit(
+        repoRoot ?? project.root,
+        openaiApiKey,
+        commitModel,
+      );
+      setLastCommit(msg);
+      await refreshGit();
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setAiCommitting(false);
+    }
   };
 
   const toggleDir = (path: string) => {
@@ -248,6 +277,21 @@ export function ProjectPanel() {
               </button>
               <div className="flex items-center gap-1">
                 <button
+                  onClick={autoCommit}
+                  disabled={aiCommitting}
+                  className="p-1.5 rounded-md text-slate-400 hover:text-violet-300 hover:bg-slate-800/60 transition-all disabled:opacity-50"
+                  title="AI auto-commit (stages all changes)"
+                >
+                  {aiCommitting ? (
+                    <Loader2
+                      size={13}
+                      className="animate-spin text-violet-300"
+                    />
+                  ) : (
+                    <Sparkles size={13} />
+                  )}
+                </button>
+                <button
                   onClick={() => openLazygit(repoRoot ?? project.root)}
                   className="p-1.5 rounded-md text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 transition-all"
                   title="Open lazygit in a new terminal"
@@ -301,6 +345,13 @@ export function ProjectPanel() {
             {error && (
               <div className="text-[11px] text-rose-300 bg-rose-500/10 border border-rose-500/20 rounded-lg p-2">
                 {error}
+              </div>
+            )}
+
+            {lastCommit && !error && (
+              <div className="text-[11px] text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-2 flex items-start gap-1.5 animate-fade-in">
+                <Check size={12} className="shrink-0 mt-0.5" />
+                <span className="font-mono break-all">{lastCommit}</span>
               </div>
             )}
 

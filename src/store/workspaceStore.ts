@@ -7,6 +7,8 @@ export interface AppSettings {
   cursorBlink: boolean;
   scrollback: number;
   diffViewer: "auto" | "delta" | "diff-so-fancy" | "plain";
+  openaiApiKey: string;
+  commitModel: string;
 }
 
 export const defaultSettings: AppSettings = {
@@ -15,6 +17,8 @@ export const defaultSettings: AppSettings = {
   cursorBlink: true,
   scrollback: 100000,
   diffViewer: "auto",
+  openaiApiKey: "",
+  commitModel: "gpt-4o-mini",
 };
 
 export interface Project {
