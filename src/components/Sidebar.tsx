@@ -1,12 +1,26 @@
-import { useWorkspaceStore } from "../store/workspaceStore";
+import { useState } from "react";
+import { useWorkspaceStore, Workspace } from "../store/workspaceStore";
 import { ProjectPanel } from "./ProjectPanel";
-import { Box, Plus, X, Layers } from "lucide-react";
+import { Box, Plus, X, Layers, Pencil } from "lucide-react";
 
 export function Sidebar() {
   const store = useWorkspaceStore();
   const workspaces = store.workspaces;
-  const activeId =
-    store.activeWorkspaceId ?? workspaces[0]?.id ?? null;
+  const activeId = store.activeWorkspaceId ?? workspaces[0]?.id ?? null;
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+
+  const startRename = (w: Workspace) => {
+    setEditingId(w.id);
+    setEditingName(w.name);
+  };
+
+  const commitRename = () => {
+    const name = editingName.trim();
+    if (editingId && name) store.renameWorkspace(editingId, name);
+    setEditingId(null);
+  };
 
   return (
     <div className="w-72 h-full flex flex-col overflow-hidden bg-slate-950/60 backdrop-blur-xl border-r border-white/10 animate-fade-in">
@@ -43,24 +57,60 @@ export function Sidebar() {
                     : "bg-slate-900/40 border-transparent text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
                 }`}
               >
-                <span className="flex items-center gap-2.5 truncate">
-                  <Layers
-                    size={14}
-                    className={isActive ? "text-cyan-400" : "text-slate-500"}
-                  />
-                  <span className="truncate">{w.name}</span>
-                </span>
-                {workspaces.length > 1 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      store.removeWorkspace(w.id);
+                {editingId === w.id ? (
+                  <input
+                    autoFocus
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.target.select()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitRename();
+                      if (e.key === "Escape") setEditingId(null);
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-500 hover:text-rose-300 hover:bg-rose-500/20 transition-all"
-                    title="Close workspace"
+                    onBlur={commitRename}
+                    className="flex-1 min-w-0 bg-slate-900/80 border border-cyan-500/40 rounded px-1.5 py-0.5 text-sm text-cyan-100 outline-none"
+                  />
+                ) : (
+                  <span
+                    className="flex items-center gap-2.5 truncate"
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      startRename(w);
+                    }}
                   >
-                    <X size={12} />
-                  </button>
+                    <Layers
+                      size={14}
+                      className={isActive ? "text-cyan-400" : "text-slate-500"}
+                    />
+                    <span className="truncate">{w.name}</span>
+                  </span>
+                )}
+                {editingId !== w.id && (
+                  <span className="flex items-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startRename(w);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-500 hover:text-cyan-300 hover:bg-slate-800/60 transition-all"
+                      title="Rename workspace"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    {workspaces.length > 1 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          store.removeWorkspace(w.id);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-500 hover:text-rose-300 hover:bg-rose-500/20 transition-all"
+                        title="Close workspace"
+                      >
+                        <X size={12} />
+                      </button>
+                    )}
+                  </span>
                 )}
               </div>
             );
