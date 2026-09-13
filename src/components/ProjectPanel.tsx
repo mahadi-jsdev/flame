@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useWorkspaceStore } from "../store/workspaceStore";
-import { gitBranch, gitStatus, GitStatusEntry } from "../lib/tauri";
+import { gitBranch, gitStatus, writePty, GitStatusEntry } from "../lib/tauri";
 import { File, Folder, FolderOpen, RefreshCw, GitBranch, Plus, X } from "lucide-react";
 
 type Tab = "files" | "git";
@@ -18,6 +18,23 @@ function statusColor(status: string) {
   if (status[0] === "R" || status[1] === "R") return "bg-cyan-500/20 text-cyan-300 border-cyan-500/30";
   if (status[0] === "C" || status[1] === "C") return "bg-violet-500/20 text-violet-300 border-violet-500/30";
   return "bg-slate-500/20 text-slate-400 border-slate-500/30";
+}
+
+function quotedShell(s: string) {
+  return `'${s.replace(/'/g, "'\\''")}'`;
+}
+
+function openGitDiffInTerminal(path: string, status: string, root: string) {
+  const workspace = useWorkspaceStore.getState().getActiveWorkspace();
+  const sessionId = workspace?.activeTerminalId;
+  if (!sessionId) return;
+  const qPath = quotedShell(path);
+  const qRoot = quotedShell(root);
+  const cmd =
+    status === "??"
+      ? `git -C ${qRoot} diff --no-index /dev/null ${qPath} | vim -c 'set ft=diff' -; true`
+      : `git -C ${qRoot} diff HEAD -- ${qPath} | vim -c 'set ft=diff' -`;
+  writePty(sessionId, `${cmd}\n`).catch(console.error);
 }
 
 function statusLabel(status: string) {
@@ -261,11 +278,23 @@ export function ProjectPanel() {
               </div>
             )}
 
-            {entries.length > 0 && (
+            {entries.length > 0 && project && (
               <div className="space-y-2">
-                <GitGroup title="Staged" entries={grouped.staged} />
-                <GitGroup title="Unstaged" entries={grouped.unstaged} />
-                <GitGroup title="Untracked" entries={grouped.untracked} />
+                <GitGroup
+                  title="Staged"
+                  entries={grouped.staged}
+                  root={project.root}
+                />
+                <GitGroup
+                  title="Unstaged"
+                  entries={grouped.unstaged}
+                  root={project.root}
+                />
+                <GitGroup
+                  title="Untracked"
+                  entries={grouped.untracked}
+                  root={project.root}
+                />
               </div>
             )}
           </div>
@@ -284,9 +313,11 @@ export function ProjectPanel() {
 function GitGroup({
   title,
   entries,
+  root,
 }: {
   title: string;
   entries: GitStatusEntry[];
+  root: string;
 }) {
   if (entries.length === 0) return null;
   return (
@@ -298,7 +329,9 @@ function GitGroup({
         {entries.map((e) => (
           <div
             key={e.path}
-            className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-slate-900/40 border border-white/5 hover:bg-slate-800/60 transition-colors"
+            onClick={() => openGitDiffInTerminal(e.path, e.status, root)}
+            className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg bg-slate-900/40 border border-white/5 hover:bg-slate-800/60 transition-colors cursor-pointer"
+            title="Open git diff in active terminal"
           >
             <span
               className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border font-medium ${statusColor(
