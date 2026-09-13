@@ -1,7 +1,9 @@
+import { TerminalPane } from "./components/TerminalPane";
+
 function App() {
   return (
-    <div className="h-screen w-screen bg-slate-950 text-slate-100 flex items-center justify-center">
-      <p>AI Terminal Agent — scaffold ready</p>
+    <div className="h-screen w-screen bg-slate-950 p-2">
+      <TerminalPane />
     </div>
   );
 }
