@@ -9,10 +9,16 @@ import {
   spawnPty,
   writePty,
 } from "../lib/tauri";
+import { useWorkspaceStore } from "../store/workspaceStore";
 import "@xterm/xterm/css/xterm.css";
 
-export function TerminalPane() {
+interface TerminalPaneProps {
+  paneId: string;
+}
+
+export function TerminalPane({ paneId }: TerminalPaneProps) {
   const divRef = useRef<HTMLDivElement>(null);
+  const sessionIdRef = useRef<string>("");
 
   useEffect(() => {
     if (!divRef.current) return;
@@ -28,7 +34,12 @@ export function TerminalPane() {
     fitAddon.fit();
 
     const { cols, rows } = term;
-    const sessionIdRef = { current: "" };
+
+    const makeActive = () => {
+      if (sessionIdRef.current) {
+        useWorkspaceStore.getState().setActiveTerminal(sessionIdRef.current);
+      }
+    };
 
     let unlistenData: () => void = () => {};
     let unlistenExit: () => void = () => {};
@@ -36,6 +47,7 @@ export function TerminalPane() {
     const cleanup = async () => {
       unlistenData();
       unlistenExit();
+      divRef.current?.removeEventListener("mousedown", makeActive);
       if (sessionIdRef.current) {
         await killPty(sessionIdRef.current);
       }
@@ -45,6 +57,10 @@ export function TerminalPane() {
       try {
         const id = await spawnPty(undefined, rows, cols);
         sessionIdRef.current = id;
+        useWorkspaceStore.getState().setSessionId(paneId, id);
+        useWorkspaceStore.getState().setActiveTerminal(id);
+
+        divRef.current?.addEventListener("mousedown", makeActive);
 
         term.onData((data) => {
           writePty(id, data).catch(console.error);
@@ -90,7 +106,7 @@ export function TerminalPane() {
       cleanup();
       term.dispose();
     };
-  }, []);
+  }, [paneId]);
 
-  return <div ref={divRef} className="h-full w-full" />;
+  return <div ref={divRef} className="h-full w-full outline-none" tabIndex={0} />;
 }
