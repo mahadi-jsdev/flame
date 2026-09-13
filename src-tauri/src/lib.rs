@@ -1,7 +1,7 @@
 mod git;
 mod pty;
 
-use git::{git_branch, git_branches, git_checkout, git_status, GitStatusEntry};
+use git::{git_branch, git_branches, git_checkout, git_root, git_status, GitStatusEntry};
 use pty::{PtyManager, PtySpawnResult};
 use tauri::Manager;
 
@@ -56,6 +56,11 @@ fn git_checkout_cmd(path: String, branch: String) -> Result<(), String> {
     git_checkout(&path, &branch)
 }
 
+#[tauri::command]
+fn git_root_cmd(path: String) -> Result<String, String> {
+    git_root(&path)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -73,7 +78,8 @@ pub fn run() {
             git_status_cmd,
             git_branch_cmd,
             git_branches_cmd,
-            git_checkout_cmd
+            git_checkout_cmd,
+            git_root_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

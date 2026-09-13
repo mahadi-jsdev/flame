@@ -14,6 +14,8 @@ pub fn git_status(path: &str) -> Result<Vec<GitStatusEntry>, String> {
         .arg(path)
         .arg("status")
         .arg("--porcelain")
+        .arg("--")
+        .arg(".")
         .output()
         .map_err(|e| e.to_string())?;
 
@@ -96,6 +98,22 @@ pub fn git_checkout(path: &str, branch: &str) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+pub fn git_root(path: &str) -> Result<String, String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(path)
+        .arg("rev-parse")
+        .arg("--show-toplevel")
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
 pub fn git_branch(path: &str) -> Result<Option<String>, String> {

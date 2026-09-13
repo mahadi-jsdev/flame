@@ -4,6 +4,7 @@ import {
   gitBranch,
   gitBranches,
   gitCheckout,
+  gitRoot,
   gitStatus,
   GitStatusEntry,
 } from "../lib/tauri";
@@ -17,6 +18,7 @@ import {
   GitBranch,
   Plus,
   RefreshCw,
+  SquareTerminal,
   X,
 } from "lucide-react";
 
@@ -57,11 +59,20 @@ function openGitDiffInTerminal(path: string, status: string, root: string) {
   if (!workspace) return;
   const qPath = quotedShell(path);
   const qRoot = quotedShell(root);
+  const pager =
+    "{ if command -v delta >/dev/null 2>&1; then delta --line-numbers; elif command -v diff-so-fancy >/dev/null 2>&1; then diff-so-fancy; else cat; fi; } | less --tabs=4 -RFX";
   const diffCmd =
     status === "??"
-      ? `git -C ${qRoot} diff --color=always --no-index /dev/null ${qPath} | { command -v diff-so-fancy >/dev/null 2>&1 && diff-so-fancy || cat; } | less --tabs=4 -RFX; true`
-      : `git -C ${qRoot} diff --color=always HEAD -- ${qPath} | { command -v diff-so-fancy >/dev/null 2>&1 && diff-so-fancy || cat; } | less --tabs=4 -RFX`;
+      ? `git -C ${qRoot} diff --color=always --no-index /dev/null ${qPath} | ${pager}; true`
+      : `git -C ${qRoot} diff --color=always HEAD -- ${qPath} | ${pager}`;
   store.addPane(workspace.id, `sh -c ${quotedShell(diffCmd)}`);
+}
+
+function openLazygit(root: string) {
+  const store = useWorkspaceStore.getState();
+  const workspace = store.getActiveWorkspace();
+  if (!workspace) return;
+  store.addPane(workspace.id, `lazygit -p ${quotedShell(root)}`);
 }
 
 function statusLabel(status: string) {
@@ -149,6 +160,7 @@ export function ProjectPanel() {
   );
 
   const [entries, setEntries] = useState<GitStatusEntry[]>([]);
+  const [repoRoot, setRepoRoot] = useState<string | null>(null);
   const [branch, setBranch] = useState<string | null>(null);
   const [branches, setBranches] = useState<string[]>([]);
   const [showBranches, setShowBranches] = useState(false);
@@ -176,6 +188,12 @@ export function ProjectPanel() {
     } catch {
       setBranch(null);
     }
+
+    try {
+      setRepoRoot(await gitRoot(project.root));
+    } catch {
+      setRepoRoot(null);
+    }
   };
 
   useEffect(() => {
@@ -184,6 +202,7 @@ export function ProjectPanel() {
     } else {
       setEntries([]);
       setBranch(null);
+      setRepoRoot(null);
     }
     setShowBranches(false);
   }, [project?.id, project?.root]);
@@ -326,17 +345,26 @@ export function ProjectPanel() {
                   }`}
                 />
               </button>
-              <button
-                onClick={refreshGit}
-                disabled={loading}
-                className="p-1.5 rounded-md text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 transition-all disabled:opacity-50"
-                title="Refresh git status"
-              >
-                <RefreshCw
-                  size={12}
-                  className={loading ? "animate-spin" : ""}
-                />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => openLazygit(repoRoot ?? project.root)}
+                  className="p-1.5 rounded-md text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 transition-all"
+                  title="Open lazygit in a new terminal"
+                >
+                  <SquareTerminal size={13} />
+                </button>
+                <button
+                  onClick={refreshGit}
+                  disabled={loading}
+                  className="p-1.5 rounded-md text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 transition-all disabled:opacity-50"
+                  title="Refresh git status"
+                >
+                  <RefreshCw
+                    size={12}
+                    className={loading ? "animate-spin" : ""}
+                  />
+                </button>
+              </div>
             </div>
 
             {showBranches && (
@@ -388,7 +416,7 @@ export function ProjectPanel() {
                   depth={0}
                   collapsed={collapsed}
                   onToggle={toggleDir}
-                  root={project.root}
+                  root={repoRoot ?? project.root}
                 />
               </div>
             )}
