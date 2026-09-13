@@ -9,6 +9,7 @@ export interface AppSettings {
   diffViewer: "auto" | "delta" | "diff-so-fancy" | "plain";
   openaiApiKey: string;
   commitModel: string;
+  notifications: boolean;
 }
 
 export const defaultSettings: AppSettings = {
@@ -19,6 +20,7 @@ export const defaultSettings: AppSettings = {
   diffViewer: "auto",
   openaiApiKey: "",
   commitModel: "gpt-4o-mini",
+  notifications: true,
 };
 
 export interface Project {

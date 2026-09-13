@@ -10,6 +10,7 @@ import {
   writePty,
 } from "../lib/tauri";
 import { useWorkspaceStore } from "../store/workspaceStore";
+import { agentName, shouldNotify, TaskWatcher } from "../lib/taskWatcher";
 import "@xterm/xterm/css/xterm.css";
 
 interface TerminalPaneProps {
@@ -30,6 +31,36 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
     let unlistenExit: () => void = () => {};
     let unsubSettings: () => void = () => {};
     let resizeObserver: ResizeObserver | null = null;
+    const watcher = new TaskWatcher({
+      onDone: (command) => void maybeNotify(command),
+    });
+
+    const maybeNotify = async (command: string) => {
+      const st = useWorkspaceStore.getState();
+      const w = st.getActiveWorkspace();
+      const isActivePane = w?.activeTerminalId === sessionIdRef.current;
+      if (
+        !shouldNotify(
+          st.settings.notifications,
+          document.hasFocus(),
+          isActivePane,
+        )
+      )
+        return;
+      try {
+        const mod = await import("@tauri-apps/plugin-notification");
+        if (!(await mod.isPermissionGranted())) {
+          if ((await mod.requestPermission()) !== "granted") return;
+        }
+        const agent = agentName(command);
+        await mod.sendNotification({
+          title: agent ? `${agent} finished` : "Terminal task finished",
+          body: command || "A task completed or is waiting for input",
+        });
+      } catch {
+        // notifications unavailable
+      }
+    };
 
     const initialSettings = useWorkspaceStore.getState().settings;
     const term = new Terminal({
@@ -80,6 +111,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
 
     const cleanup = async () => {
       resizeObserver?.disconnect();
+      watcher.stop();
       unlistenData();
       unlistenExit();
       unsubSettings();
@@ -120,6 +152,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
 
         term.onData((data) => {
           writePty(id, data).catch(console.error);
+          watcher.onInput(data);
         });
 
         term.onResize(({ cols, rows }) => {
@@ -128,6 +161,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
 
         const unlistenDataPromise = onPtyData((payload) => {
           if (payload.id !== id) return;
+          watcher.onOutput();
           const bytes = new Uint8Array(
             atob(payload.chunk_b64)
               .split("")
@@ -168,6 +202,8 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
           }
         });
         resizeObserver.observe(divRef.current!);
+
+        watcher.start();
       } catch (e) {
         term.writeln(`\r\n[failed to spawn terminal: ${e}]`);
       }

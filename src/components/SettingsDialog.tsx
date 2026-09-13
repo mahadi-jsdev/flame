@@ -159,6 +159,22 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             />
           </Row>
 
+          <Row label="Notifications" hint="Alert when a long task finishes">
+            <button
+              onClick={() => update({ notifications: !settings.notifications })}
+              className={`relative w-9 h-5 rounded-full transition-colors ${
+                settings.notifications ? "bg-cyan-500/40" : "bg-slate-700"
+              }`}
+              title="Toggle notifications"
+            >
+              <span
+                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${
+                  settings.notifications ? "left-[18px]" : "left-0.5"
+                }`}
+              />
+            </button>
+          </Row>
+
           <Row label="OpenAI API key" hint="Used for AI auto-commit">
             <input
               type="password"
