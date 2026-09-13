@@ -1,5 +1,7 @@
+mod filesystem;
 mod pty;
 
+use filesystem::{list_directory, DirEntry};
 use pty::PtyManager;
 use tauri::Manager;
 
@@ -34,14 +36,15 @@ fn kill_pty(state: tauri::State<'_, PtyManager>, id: String) -> Result<(), Strin
 }
 
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {name}! You've been greeted from Rust!")
+fn list_dir(path: String) -> Result<Vec<DirEntry>, String> {
+    list_directory(&path)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             app.manage(PtyManager::new(app.handle().clone()));
             Ok(())
@@ -51,7 +54,7 @@ pub fn run() {
             write_pty,
             resize_pty,
             kill_pty,
-            greet
+            list_dir
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
