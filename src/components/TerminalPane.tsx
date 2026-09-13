@@ -28,12 +28,15 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
 
     let unlistenData: () => void = () => {};
     let unlistenExit: () => void = () => {};
+    let unsubSettings: () => void = () => {};
     let resizeObserver: ResizeObserver | null = null;
 
+    const initialSettings = useWorkspaceStore.getState().settings;
     const term = new Terminal({
-      cursorBlink: true,
-      cursorStyle: "bar",
-      fontSize: 14,
+      cursorBlink: initialSettings.cursorBlink,
+      cursorStyle: initialSettings.cursorStyle,
+      fontSize: initialSettings.fontSize,
+      scrollback: initialSettings.scrollback,
       lineHeight: 1.25,
       fontFamily: TERM_FONT,
       fontWeight: 400,
@@ -63,7 +66,6 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
         brightCyan: "#67e8f9",
         brightWhite: "#ffffff",
       },
-      scrollback: 100000,
       allowProposedApi: true,
     });
 
@@ -80,6 +82,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
       resizeObserver?.disconnect();
       unlistenData();
       unlistenExit();
+      unsubSettings();
       divRef.current?.removeEventListener("mousedown", makeActive);
       if (sessionIdRef.current) {
         await killPty(sessionIdRef.current);
@@ -140,6 +143,22 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
 
         unlistenData = await unlistenDataPromise;
         unlistenExit = await unlistenExitPromise;
+
+        unsubSettings = useWorkspaceStore.subscribe((s) => {
+          const st = s.settings;
+          const resized = term.options.fontSize !== st.fontSize;
+          term.options.fontSize = st.fontSize;
+          term.options.cursorStyle = st.cursorStyle;
+          term.options.cursorBlink = st.cursorBlink;
+          term.options.scrollback = st.scrollback;
+          if (resized) {
+            try {
+              fitAddon.fit();
+            } catch {
+              // ignored
+            }
+          }
+        });
 
         resizeObserver = new ResizeObserver(() => {
           try {

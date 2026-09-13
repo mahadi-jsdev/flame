@@ -59,8 +59,15 @@ function openGitDiffInTerminal(path: string, status: string, root: string) {
   if (!workspace) return;
   const qPath = quotedShell(path);
   const qRoot = quotedShell(root);
+  const viewer = useWorkspaceStore.getState().settings.diffViewer;
   const pager =
-    "{ if command -v delta >/dev/null 2>&1; then delta --line-numbers; elif command -v diff-so-fancy >/dev/null 2>&1; then diff-so-fancy; else cat; fi; } | less --tabs=4 -RFX";
+    viewer === "delta"
+      ? "{ command -v delta >/dev/null 2>&1 && delta --line-numbers || cat; } | less --tabs=4 -RFX"
+      : viewer === "diff-so-fancy"
+        ? "{ command -v diff-so-fancy >/dev/null 2>&1 && diff-so-fancy || cat; } | less --tabs=4 -RFX"
+        : viewer === "plain"
+          ? "less --tabs=4 -RFX"
+          : "{ if command -v delta >/dev/null 2>&1; then delta --line-numbers; elif command -v diff-so-fancy >/dev/null 2>&1; then diff-so-fancy; else cat; fi; } | less --tabs=4 -RFX";
   const diffCmd =
     status === "??"
       ? `git -C ${qRoot} diff --color=always --no-index /dev/null ${qPath} | ${pager}; true`

@@ -2,7 +2,16 @@ import { useEffect, useState } from "react";
 import { useWorkspaceStore } from "../store/workspaceStore";
 import { Sidebar } from "./Sidebar";
 import { TerminalPane } from "./TerminalPane";
-import { Plus, X, Terminal, Command, Cpu, GripVertical } from "lucide-react";
+import { SettingsDialog } from "./SettingsDialog";
+import {
+  Plus,
+  X,
+  Terminal,
+  Command,
+  Cpu,
+  GripVertical,
+  Settings,
+} from "lucide-react";
 
 function getGridLayout(count: number) {
   if (count <= 1) return { cols: 1, rows: 1 };
@@ -37,6 +46,7 @@ export function Workspace() {
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const { cols, rows } = getGridLayout(count);
   const allCount = store.workspaces.length;
@@ -69,22 +79,31 @@ export function Workspace() {
             </div>
           </div>
 
-          <button
-            onClick={() => store.addPane()}
-            className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 hover:border-cyan-400/40 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] text-xs font-medium"
-          >
-            <Plus
-              size={14}
-              className="text-slate-400 group-hover:text-cyan-300 transition-colors"
-            />
-            <span>New Terminal</span>
-            <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-slate-500 bg-slate-900/80 px-1.5 py-0.5 rounded border border-white/5 group-hover:border-cyan-400/20 group-hover:text-slate-400 transition-colors">
-              <Command size={10} />
-              <span>+</span>
-              <span>Shift</span>
-              <span>+ T</span>
-            </kbd>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowSettings(true)}
+              className="p-2 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 border border-transparent hover:border-white/10 transition-all"
+              title="Settings"
+            >
+              <Settings size={15} />
+            </button>
+            <button
+              onClick={() => store.addPane()}
+              className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 hover:border-cyan-400/40 transition-all hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] text-xs font-medium"
+            >
+              <Plus
+                size={14}
+                className="text-slate-400 group-hover:text-cyan-300 transition-colors"
+              />
+              <span>New Terminal</span>
+              <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-slate-500 bg-slate-900/80 px-1.5 py-0.5 rounded border border-white/5 group-hover:border-cyan-400/20 group-hover:text-slate-400 transition-colors">
+                <Command size={10} />
+                <span>+</span>
+                <span>Shift</span>
+                <span>+ T</span>
+              </kbd>
+            </button>
+          </div>
         </header>
 
         <main
@@ -220,6 +239,10 @@ export function Workspace() {
             </div>
           </div>
         ))}
+
+        {showSettings && (
+          <SettingsDialog onClose={() => setShowSettings(false)} />
+        )}
 
         <footer className="h-7 shrink-0 px-5 flex items-center justify-between text-[11px] text-slate-500 bg-slate-950/60 backdrop-blur border-t border-white/10">
           <span className="flex items-center gap-1.5">

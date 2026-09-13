@@ -23,7 +23,8 @@ MVP scope (what is currently built):
 
 Out of scope for the MVP:
 
-- Cloud AI providers, API keys, billing, or persistence.
+- Cloud AI providers, API keys, or billing. (Settings persist via localStorage;
+  workspaces/terminals are still ephemeral.)
 - Chat, browser preview, voice, plugins, agent routines, SSH/fleet.
 - A full code editor.
 
@@ -48,6 +49,7 @@ src/                         React / TypeScript frontend
     Sidebar.tsx              Workspace switcher
     ProjectPanel.tsx         Project switcher + git status tree / branch switcher
     TerminalPane.tsx         xterm.js pane wired to PTY
+    SettingsDialog.tsx       App settings modal (font, cursor, scrollback, diff viewer)
   lib/
     tauri.ts                 Tauri command helpers
   store/
