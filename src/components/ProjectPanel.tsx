@@ -376,7 +376,7 @@ export function ProjectPanel() {
             </div>
 
             {showBranches && (
-              <div className="rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden">
+              <div className="rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden animate-pop-in shadow-lg shadow-black/30">
                 {branches.length === 0 ? (
                   <div className="px-3 py-2 text-xs text-slate-500">
                     No local branches
@@ -418,7 +418,7 @@ export function ProjectPanel() {
             )}
 
             {entries.length > 0 && (
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 animate-fade-in">
                 <DirTree
                   dir={tree}
                   depth={0}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useWorkspaceStore, Workspace } from "../store/workspaceStore";
 import { ProjectPanel } from "./ProjectPanel";
-import { Box, Plus, X, Layers, Pencil } from "lucide-react";
+import { Plus, X, Layers, Pencil, Cpu } from "lucide-react";
 
 export function Sidebar() {
   const store = useWorkspaceStore();
@@ -24,8 +24,10 @@ export function Sidebar() {
 
   return (
     <div className="w-72 h-full flex flex-col overflow-hidden bg-slate-950/60 backdrop-blur-xl border-r border-white/10 animate-fade-in">
-      <div className="h-14 shrink-0 flex items-center px-5 border-b border-white/10">
-        <Box size={18} className="text-cyan-400 mr-2" />
+      <div className="h-14 shrink-0 flex items-center gap-2.5 px-5 border-b border-white/10">
+        <div className="p-1.5 rounded-lg bg-gradient-to-br from-cyan-500 to-violet-600 shadow-md shadow-cyan-500/20 ring-1 ring-white/20">
+          <Cpu size={14} className="text-white" />
+        </div>
         <span className="text-sm font-bold tracking-tight bg-gradient-to-r from-cyan-300 to-violet-300 bg-clip-text text-transparent">
           Agent
         </span>
@@ -87,7 +89,13 @@ export function Sidebar() {
                   </span>
                 )}
                 {editingId !== w.id && (
-                  <span className="flex items-center">
+                  <span className="flex items-center shrink-0">
+                    <span
+                      className="mr-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-500 bg-slate-900/60 border border-white/5 group-hover:opacity-0 transition-opacity"
+                      title={`${w.panes.length} terminal${w.panes.length === 1 ? "" : "s"}`}
+                    >
+                      {w.panes.length}
+                    </span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

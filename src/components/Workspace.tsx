@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useWorkspaceStore } from "../store/workspaceStore";
 import { Sidebar } from "./Sidebar";
 import { TerminalPane } from "./TerminalPane";
-import { Plus, X, Terminal, Command, Cpu } from "lucide-react";
+import { Plus, X, Terminal, Command, Cpu, GripVertical } from "lucide-react";
 
 function getGridLayout(count: number) {
   if (count <= 1) return { cols: 1, rows: 1 };
@@ -51,10 +51,11 @@ export function Workspace() {
 
       <div className="flex-1 flex flex-col min-w-0 relative">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_#0e4e63_0%,_#05070a_60%)] opacity-60 pointer-events-none" />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_right,_#3b1d5e_0%,_transparent_55%)] opacity-40 pointer-events-none" />
 
         <header className="h-14 shrink-0 px-5 flex items-center justify-between bg-slate-950/60 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-cyan-500 to-violet-600 shadow-lg shadow-cyan-500/20">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-cyan-500 to-violet-600 shadow-lg shadow-cyan-500/20 ring-1 ring-white/20">
               <Cpu size={18} className="text-white" />
             </div>
             <div className="flex flex-col leading-tight">
@@ -77,12 +78,12 @@ export function Workspace() {
               className="text-slate-400 group-hover:text-cyan-300 transition-colors"
             />
             <span>New Terminal</span>
-            <span className="hidden sm:inline-flex items-center gap-1 text-[10px] text-slate-500 bg-slate-900/80 px-1.5 py-0.5 rounded border border-white/5">
+            <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-slate-500 bg-slate-900/80 px-1.5 py-0.5 rounded border border-white/5 group-hover:border-cyan-400/20 group-hover:text-slate-400 transition-colors">
               <Command size={10} />
               <span>+</span>
               <span>Shift</span>
               <span>+ T</span>
-            </span>
+            </kbd>
           </button>
         </header>
 
@@ -118,11 +119,13 @@ export function Workspace() {
                   setDragId(null);
                   setDropTargetId(null);
                 }}
-                className={`terminal-card min-h-0 h-full w-full flex flex-col rounded-2xl border bg-slate-900/60 backdrop-blur-sm shadow-2xl shadow-black/40 overflow-hidden transition-all duration-300 ${
+                className={`terminal-card group min-h-0 h-full w-full flex flex-col rounded-2xl border backdrop-blur-sm overflow-hidden transition-all duration-300 ${
                   isDropTarget
-                    ? "border-cyan-400/60 shadow-[0_0_30px_rgba(34,211,238,0.2)]"
-                    : "border-white/10 hover:border-cyan-500/20 hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]"
-                } ${isDragging ? "opacity-40" : ""}`}
+                    ? "border-cyan-400/60 shadow-[0_0_30px_rgba(34,211,238,0.2)] bg-slate-900/70"
+                    : isActive
+                      ? "border-cyan-400/40 bg-slate-900/70 shadow-2xl shadow-cyan-500/10 shadow-black/40"
+                      : "border-white/10 bg-slate-900/60 shadow-2xl shadow-black/40 hover:border-cyan-500/20 hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]"
+                } ${isDragging ? "opacity-40 scale-[0.99]" : ""}`}
               >
                 <div
                   draggable={count > 1}
@@ -135,14 +138,25 @@ export function Workspace() {
                     setDragId(null);
                     setDropTargetId(null);
                   }}
-                  className={`h-10 shrink-0 flex items-center justify-between px-3 bg-slate-900/80 border-b border-white/10 ${
-                    count > 1 ? "cursor-grab active:cursor-grabbing" : ""
-                  }`}
+                  className={`h-10 shrink-0 flex items-center justify-between px-3 border-b transition-colors ${
+                    isActive
+                      ? "bg-slate-900/90 border-cyan-500/20"
+                      : "bg-slate-900/80 border-white/10"
+                  } ${count > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
                   title={count > 1 ? "Drag to rearrange" : undefined}
                 >
-                  <div className="flex items-center gap-2 text-xs font-medium text-slate-300">
-                    <Terminal size={13} className="text-cyan-400" />
-                    <span>Terminal {index + 1}</span>
+                  <div className="flex items-center gap-2 text-xs font-medium text-slate-300 min-w-0">
+                    {count > 1 && (
+                      <GripVertical
+                        size={12}
+                        className="shrink-0 text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                      />
+                    )}
+                    <Terminal
+                      size={13}
+                      className={isActive ? "text-cyan-400" : "text-slate-500"}
+                    />
+                    <span className="truncate">Terminal {index + 1}</span>
                     {pane.shell && (
                       <span className="text-[10px] text-slate-500 font-mono border-l border-white/10 pl-2">
                         {pane.shell}
@@ -150,7 +164,7 @@ export function Workspace() {
                     )}
                     {isActive && (
                       <span className="ml-1 inline-flex items-center gap-1.5 pl-1.5 pr-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-[10px] text-cyan-300">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.6)]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.6)] animate-pulse-soft" />
                         Active
                       </span>
                     )}
@@ -163,7 +177,11 @@ export function Workspace() {
                     <X size={13} />
                   </button>
                 </div>
-                <div className="flex-1 min-h-0 relative bg-[#080c14]">
+                <div
+                  className={`flex-1 min-h-0 relative bg-[#080c14] transition-opacity ${
+                    isActive ? "opacity-100" : "opacity-90"
+                  }`}
+                >
                   <TerminalPane paneId={pane.id} />
                 </div>
               </div>
@@ -174,9 +192,9 @@ export function Workspace() {
         {overlayPanes.map((pane) => (
           <div
             key={pane.id}
-            className="absolute inset-0 z-20 p-3 bg-black/70 backdrop-blur-sm"
+            className="absolute inset-0 z-20 p-3 bg-black/70 backdrop-blur-sm animate-fade-in"
           >
-            <div className="h-full w-full flex flex-col rounded-2xl border border-white/15 bg-slate-900/80 shadow-2xl shadow-black/60 overflow-hidden">
+            <div className="h-full w-full flex flex-col rounded-2xl border border-white/15 bg-slate-900/80 shadow-2xl shadow-black/60 overflow-hidden animate-slide-up ring-1 ring-cyan-500/10">
               <div className="h-10 shrink-0 flex items-center justify-between px-4 bg-slate-900/80 border-b border-white/10">
                 <div className="flex items-center gap-2 min-w-0 text-xs font-medium text-slate-300">
                   <Terminal size={13} className="shrink-0 text-cyan-400" />
@@ -189,10 +207,11 @@ export function Workspace() {
                 </div>
                 <button
                   onClick={() => store.removePane(pane.id)}
-                  className="p-1.5 rounded-md text-slate-500 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-md text-slate-500 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
                   title="Close"
                 >
                   <X size={13} />
+                  <span className="text-[10px]">Close</span>
                 </button>
               </div>
               <div className="flex-1 min-h-0 relative bg-[#080c14]">
@@ -213,8 +232,13 @@ export function Workspace() {
               </span>
             )}
           </span>
-          <span className="hidden sm:inline">
-            Ctrl/Cmd + Shift + T → new terminal
+          <span className="hidden sm:inline-flex items-center gap-1.5">
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-900/80 border border-white/10 font-mono text-[10px]">
+              ⌃/⌘ ⇧ T
+            </kbd>
+            <span className="text-slate-600">new terminal</span>
+            <span className="text-slate-700 mx-1">·</span>
+            <span className="text-slate-600">drag headers to rearrange</span>
           </span>
         </footer>
       </div>
