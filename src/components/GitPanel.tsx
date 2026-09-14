@@ -10,7 +10,6 @@ import {
   GitStatusEntry,
 } from "../lib/tauri";
 import {
-  buildDiffCmd,
   buildTree,
   quotedShell,
   statusColor,
@@ -30,17 +29,6 @@ import {
   Sparkles,
   SquareTerminal,
 } from "lucide-react";
-
-function openGitDiffInTerminal(path: string, status: string, root: string) {
-  const store = useWorkspaceStore.getState();
-  const workspace = store.getActiveWorkspace();
-  if (!workspace) return;
-  store.addOverlayPane(
-    buildDiffCmd(path, status, root, store.settings.diffViewer),
-    `diff: ${path.split("/").pop()}`,
-    workspace.id,
-  );
-}
 
 function openLazygit(root: string) {
   const store = useWorkspaceStore.getState();
@@ -276,7 +264,6 @@ export function GitPanel() {
                   depth={0}
                   collapsed={collapsed}
                   onToggle={toggleDir}
-                  root={repoRoot ?? project.root}
                 />
               </div>
             )}
@@ -296,13 +283,11 @@ function DirTree({
   depth,
   collapsed,
   onToggle,
-  root,
 }: {
   dir: TreeDir;
   depth: number;
   collapsed: Set<string>;
   onToggle: (path: string) => void;
-  root: string;
 }) {
   return (
     <>
@@ -324,7 +309,7 @@ function DirTree({
               <span className="truncate">{d.name}</span>
             </div>
             {!isCollapsed && (
-              <DirTree dir={d} depth={depth + 1} collapsed={collapsed} onToggle={onToggle} root={root} />
+              <DirTree dir={d} depth={depth + 1} collapsed={collapsed} onToggle={onToggle} />
             )}
           </div>
         );
@@ -332,10 +317,8 @@ function DirTree({
       {dir.files.map((f) => (
         <div
           key={f.entry.path}
-          onClick={() => openGitDiffInTerminal(f.entry.path, f.entry.status, root)}
-          className="flex items-center gap-2 py-1.5 pr-2 rounded-md hover:bg-[#2a2318]/60 transition-colors cursor-pointer"
+          className="flex items-center gap-2 py-1.5 pr-2 rounded-md"
           style={{ paddingLeft: `${depth * 14 + 21}px` }}
-          title="Open git diff"
         >
           <File size={13} className="shrink-0 text-accent" />
           <span className="text-xs text-[#d9cbb5] truncate flex-1 min-w-0">

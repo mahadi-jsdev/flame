@@ -292,7 +292,6 @@ describe("settings", () => {
     const s = mod.useWorkspaceStore.getState();
     expect(s.settings.fontSize).toBe(19);
     expect(s.settings.cursorStyle).toBe("bar");
-    expect(s.settings.diffViewer).toBe("auto");
     expect(s.workspaces).toHaveLength(1);
   });
 });

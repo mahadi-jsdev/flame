@@ -52,31 +52,6 @@ export function quotedShell(s: string) {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
-export type DiffViewer = "auto" | "delta" | "diff-so-fancy" | "plain";
-
-export function buildDiffCmd(
-  path: string,
-  status: string,
-  root: string,
-  viewer: DiffViewer,
-) {
-  const qPath = quotedShell(path);
-  const qRoot = quotedShell(root);
-  const pager =
-    viewer === "delta"
-      ? "{ command -v delta >/dev/null 2>&1 && delta --line-numbers || cat; } | less --tabs=4 -RFX"
-      : viewer === "diff-so-fancy"
-        ? "{ command -v diff-so-fancy >/dev/null 2>&1 && diff-so-fancy || cat; } | less --tabs=4 -RFX"
-        : viewer === "plain"
-          ? "less --tabs=4 -RFX"
-          : "{ if command -v delta >/dev/null 2>&1; then delta --line-numbers; elif command -v diff-so-fancy >/dev/null 2>&1; then diff-so-fancy; else cat; fi; } | less --tabs=4 -RFX";
-  const diffCmd =
-    status === "??"
-      ? `git -C ${qRoot} diff --color=always --no-index /dev/null ${qPath} | ${pager}; true`
-      : `git -C ${qRoot} diff --color=always HEAD -- ${qPath} | ${pager}`;
-  return `sh -c ${quotedShell(diffCmd)}`;
-}
-
 export interface TreeDir {
   name: string;
   path: string;

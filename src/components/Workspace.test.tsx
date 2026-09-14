@@ -1,10 +1,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { useEffect } from "react";
 import { Workspace } from "./Workspace";
 import { defaultSettings, useWorkspaceStore } from "../store/workspaceStore";
 
+const mountCounts = vi.hoisted(() => new Map<string, number>());
+
 vi.mock("./TerminalPane", () => ({
-  TerminalPane: () => <div data-testid="terminal-pane" />,
+  TerminalPane: ({ paneId }: { paneId: string }) => {
+    useEffect(() => {
+      mountCounts.set(paneId, (mountCounts.get(paneId) ?? 0) + 1);
+    }, [paneId]);
+    return <div data-testid="terminal-pane" />;
+  },
 }));
 
 function reset() {
@@ -275,14 +283,83 @@ describe("Workspace shell", () => {
       ),
     }));
     render(<Workspace />);
-    expect(screen.getByText("web")).toBeInTheDocument();
-    expect(screen.queryByText("api")).not.toBeInTheDocument();
+    const isHidden = (label: string) =>
+      screen.getByText(label).closest(".terminal-card")!.className.split(/\s+/).includes("hidden");
+
+    expect(isHidden("web")).toBe(false);
+    expect(isHidden("api")).toBe(true);
 
     act(() => {
       useWorkspaceStore.getState().setActiveProject("pr2", "w1");
     });
-    expect(screen.getByText("api")).toBeInTheDocument();
-    expect(screen.queryByText("web")).not.toBeInTheDocument();
+    expect(isHidden("web")).toBe(true);
+    expect(isHidden("api")).toBe(false);
+  });
+
+  it("keeps a pane's terminal mounted (not remounted) when it's hidden and shown again", () => {
+    mountCounts.clear();
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? {
+              ...w,
+              projects: [
+                { id: "pr1", root: "/repo/a" },
+                { id: "pr2", root: "/repo/b" },
+              ],
+              activeProjectId: "pr1",
+              panes: [
+                { id: "p1", type: "terminal" as const, projectId: "pr1" },
+                { id: "p2", type: "terminal" as const, projectId: "pr2" },
+              ],
+            }
+          : w,
+      ),
+    }));
+    render(<Workspace />);
+    // both panes mount immediately (p2 hidden), even though only p1 is shown
+    expect(mountCounts.get("p1")).toBe(1);
+    expect(mountCounts.get("p2")).toBe(1);
+
+    act(() => {
+      useWorkspaceStore.getState().setActiveProject("pr2", "w1");
+    });
+    act(() => {
+      useWorkspaceStore.getState().setActiveProject("pr1", "w1");
+    });
+    // still mounted exactly once each — switching visibility never unmounted them
+    expect(mountCounts.get("p1")).toBe(1);
+    expect(mountCounts.get("p2")).toBe(1);
+  });
+
+  it("keeps a workspace's terminal mounted when you switch to another workspace and back", () => {
+    mountCounts.clear();
+    useWorkspaceStore.setState((s) => ({
+      workspaces: [
+        ...s.workspaces,
+        {
+          id: "w2",
+          name: "Workspace 2",
+          projects: [],
+          activeProjectId: null,
+          panes: [{ id: "p2", type: "terminal" }],
+          activeTerminalId: null,
+        },
+      ],
+      activeWorkspaceId: "w1",
+    }));
+    render(<Workspace />);
+    expect(mountCounts.get("p1")).toBe(1);
+    expect(mountCounts.get("p2")).toBe(1);
+
+    act(() => {
+      useWorkspaceStore.getState().setActiveWorkspace("w2");
+    });
+    act(() => {
+      useWorkspaceStore.getState().setActiveWorkspace("w1");
+    });
+    expect(mountCounts.get("p1")).toBe(1);
+    expect(mountCounts.get("p2")).toBe(1);
   });
 
   it("switching to a project with no panes auto-creates one", () => {

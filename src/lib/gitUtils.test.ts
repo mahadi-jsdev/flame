@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildDiffCmd,
   buildTree,
   projectName,
   quotedShell,
@@ -100,78 +99,6 @@ describe("quotedShell", () => {
   });
   it("empty string", () => {
     expect(quotedShell("")).toBe("''");
-  });
-});
-
-describe("buildDiffCmd", () => {
-  // unwrap `sh -c '...'` → the inner command sh receives
-  const unwrap = (cmd: string) => {
-    expect(cmd.startsWith("sh -c '")).toBe(true);
-    expect(cmd.endsWith("'")).toBe(true);
-    return cmd.slice(6, -1).replace(/'\\''/g, "'");
-  };
-
-  it("wraps everything in sh -c for fish compatibility", () => {
-    expect(buildDiffCmd("a.ts", " M", "/r", "auto")).toMatch(/^sh -c '/);
-  });
-
-  it("tracked file uses git diff HEAD pathspec", () => {
-    const inner = unwrap(buildDiffCmd("src/a.ts", " M", "/repo", "auto"));
-    expect(inner).toContain(
-      "git -C '/repo' diff --color=always HEAD -- 'src/a.ts'",
-    );
-  });
-
-  it("untracked file uses --no-index /dev/null with ; true", () => {
-    const inner = unwrap(buildDiffCmd("new.ts", "??", "/repo", "auto"));
-    expect(inner).toContain("--no-index /dev/null 'new.ts'");
-    expect(inner).toContain("; true");
-  });
-
-  it("tracked file has no ; true", () => {
-    expect(unwrap(buildDiffCmd("a.ts", " M", "/r", "auto"))).not.toContain(
-      "; true",
-    );
-  });
-
-  it("auto viewer prefers delta with dsf+cat fallback", () => {
-    const inner = unwrap(buildDiffCmd("a", " M", "/r", "auto"));
-    expect(inner).toContain("command -v delta");
-    expect(inner).toContain("delta --line-numbers");
-    expect(inner).toContain("diff-so-fancy");
-    expect(inner).toContain("else cat");
-    expect(inner).toContain("less --tabs=4 -RFX");
-  });
-
-  it("delta viewer uses delta, falls back to cat", () => {
-    const inner = unwrap(buildDiffCmd("a", " M", "/r", "delta"));
-    expect(inner).toContain("command -v delta");
-    expect(inner).toContain("|| cat");
-    expect(inner).not.toContain("diff-so-fancy");
-  });
-
-  it("diff-so-fancy viewer uses dsf, falls back to cat", () => {
-    const inner = unwrap(buildDiffCmd("a", " M", "/r", "diff-so-fancy"));
-    expect(inner).toContain("command -v diff-so-fancy");
-    expect(inner).not.toContain("delta --line-numbers");
-  });
-
-  it("plain viewer pipes straight to less", () => {
-    const inner = unwrap(buildDiffCmd("a", " M", "/r", "plain"));
-    expect(inner).toContain("| less --tabs=4 -RFX");
-    expect(inner).not.toContain("delta");
-    expect(inner).not.toContain("diff-so-fancy");
-  });
-
-  it("shell-quotes paths with spaces", () => {
-    const inner = unwrap(buildDiffCmd("my file.ts", " M", "/r oot", "auto"));
-    expect(inner).toContain("'/r oot'");
-    expect(inner).toContain("'my file.ts'");
-  });
-
-  it("escapes single quotes in paths", () => {
-    const inner = unwrap(buildDiffCmd("it's.ts", " M", "/r", "auto"));
-    expect(inner).toContain("'it'\\''s.ts'");
   });
 });
 

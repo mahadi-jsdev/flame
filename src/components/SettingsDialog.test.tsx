@@ -35,7 +35,6 @@ describe("SettingsDialog", () => {
       "Cursor style",
       "Cursor blink",
       "Scrollback",
-      "Diff viewer",
     ]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
@@ -63,12 +62,6 @@ describe("SettingsDialog", () => {
     render(<SettingsDialog onClose={() => {}} />);
     fireEvent.click(screen.getByText("50k"));
     expect(store().settings.scrollback).toBe(50000);
-  });
-
-  it("diff viewer segmented updates store", () => {
-    render(<SettingsDialog onClose={() => {}} />);
-    fireEvent.click(screen.getByText("Delta"));
-    expect(store().settings.diffViewer).toBe("delta");
   });
 
   it("Escape closes", () => {

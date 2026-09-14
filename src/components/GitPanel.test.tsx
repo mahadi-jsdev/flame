@@ -71,15 +71,12 @@ describe("GitPanel", () => {
     expect(screen.getByText(/Select or add a project/)).toBeInTheDocument();
   });
 
-  it("clicking a file opens an overlay pane with the diff", async () => {
+  it("file rows are informational only, no diff click", async () => {
     render(<GitPanel />);
     const row = await screen.findByText("a.ts");
     fireEvent.click(row);
     const overlay = store().workspaces[0].panes.find((p) => p.overlay);
-    expect(overlay).toBeDefined();
-    expect(overlay!.title).toBe("diff: a.ts");
-    expect(overlay!.startupCommand).toContain("git -C");
-    expect(overlay!.startupCommand).toContain("a.ts");
+    expect(overlay).toBeUndefined();
   });
 
   it("branch dropdown lists branches and switches", async () => {

@@ -75,6 +75,15 @@ export function Workspace() {
   const count = panes.length;
   const activeTerminalId = workspace?.activeTerminalId ?? null;
   const liveCount = panes.filter((p) => p.running).length;
+  const visibleIds = new Set(panes.map((p) => p.id));
+
+  // Every non-overlay pane across every workspace stays mounted here — only
+  // visibility (via a CSS class, never conditional inclusion) changes when
+  // you switch workspace or project. Unmounting would kill its PTY and lose
+  // scrollback, which defeats the point of "keep running in the background."
+  const allPanes = store.workspaces.flatMap((w) =>
+    w.panes.filter((p) => !p.overlay),
+  );
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
@@ -256,7 +265,9 @@ export function Workspace() {
               gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
             }}
           >
-            {panes.map((pane, index) => {
+            {allPanes.map((pane) => {
+              const isVisible = visibleIds.has(pane.id);
+              const index = panes.findIndex((p) => p.id === pane.id);
               const isActive = pane.sessionId === activeTerminalId;
               const isDragging = dragId === pane.id;
               const isDropTarget = dropTargetId === pane.id && !isDragging;
@@ -266,7 +277,7 @@ export function Workspace() {
                 <div
                   key={pane.id}
                   onDragOver={(e) => {
-                    if (!dragId || dragId === pane.id) return;
+                    if (!isVisible || !dragId || dragId === pane.id) return;
                     e.preventDefault();
                     e.dataTransfer.dropEffect = "move";
                     setDropTargetId(pane.id);
@@ -277,6 +288,7 @@ export function Workspace() {
                     }
                   }}
                   onDrop={(e) => {
+                    if (!isVisible) return;
                     e.preventDefault();
                     const src = e.dataTransfer.getData("application/x-pane-id");
                     if (src && src !== pane.id) store.swapPanes(src, pane.id);
@@ -284,11 +296,13 @@ export function Workspace() {
                     setDropTargetId(null);
                   }}
                   className={`terminal-card group min-h-0 h-full w-full flex flex-col rounded-2xl border overflow-hidden transition-colors duration-200 bg-[#1d1811]/70 ${
-                    isDropTarget
-                      ? "border-accent/60"
-                      : isActive
-                        ? "border-accent/40"
-                        : "border-white/10 hover:border-white/20"
+                    !isVisible
+                      ? "hidden"
+                      : isDropTarget
+                        ? "border-accent/60"
+                        : isActive
+                          ? "border-accent/40"
+                          : "border-white/10 hover:border-white/20"
                   } ${isDragging ? "opacity-40 scale-[0.99]" : ""}`}
                 >
                   <div

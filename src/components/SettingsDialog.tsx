@@ -182,19 +182,6 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             />
           </Row>
 
-          <Row label="Diff viewer" hint="Used when opening git diffs">
-            <Segmented<AppSettings["diffViewer"]>
-              value={settings.diffViewer}
-              onChange={(v) => update({ diffViewer: v })}
-              options={[
-                { value: "auto", label: "Auto" },
-                { value: "delta", label: "Delta" },
-                { value: "diff-so-fancy", label: "DSF" },
-                { value: "plain", label: "Plain" },
-              ]}
-            />
-          </Row>
-
           <Row label="Notifications" hint="Alert when a long task finishes">
             <button
               onClick={() => update({ notifications: !settings.notifications })}

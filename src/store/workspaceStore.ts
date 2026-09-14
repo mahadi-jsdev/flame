@@ -6,7 +6,6 @@ export interface AppSettings {
   cursorStyle: "bar" | "block" | "underline";
   cursorBlink: boolean;
   scrollback: number;
-  diffViewer: "auto" | "delta" | "diff-so-fancy" | "plain";
   commitModel: string;
   notifications: boolean;
   restoreSession: boolean;
@@ -18,7 +17,6 @@ export const defaultSettings: AppSettings = {
   cursorStyle: "bar",
   cursorBlink: true,
   scrollback: 100000,
-  diffViewer: "auto",
   commitModel: "gpt-4o-mini",
   notifications: true,
   restoreSession: true,
