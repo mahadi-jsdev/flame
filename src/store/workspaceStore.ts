@@ -46,6 +46,10 @@ export interface Pane {
    * across restarts — reset to false whenever a persisted session is
    * restored, since there is no live process to reflect anymore. */
   running?: boolean;
+  /** Which project this pane belongs to. `undefined` means the pane is
+   * unscoped and only shows when no project is active — new panes are
+   * stamped with whichever project is active at creation time. */
+  projectId?: string;
 }
 
 export interface Workspace {
@@ -66,7 +70,19 @@ export interface WorkspaceTemplate {
     startupCommand?: string;
     title?: string;
     color?: string;
+    /** Root of the project this pane belonged to, re-resolved against the
+     * new workspace's freshly-generated project ids on launch. */
+    projectRoot?: string;
   }[];
+}
+
+/** Panes visible for a given project (or the unscoped pool when `projectId`
+ * is null) — the same scoping rule applies to templates, keyboard nav, and
+ * the main grid so a project's terminals stay consistent everywhere. */
+export function panesForProject(workspace: Workspace, projectId: string | null): Pane[] {
+  return workspace.panes.filter(
+    (p) => !p.overlay && (p.projectId ?? null) === (projectId ?? null),
+  );
 }
 
 interface ClosedPane {
@@ -204,6 +220,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                   ...w,
                   projects: [...w.projects, project],
                   activeProjectId: project.id,
+                  panes: [...w.panes, { id: newId(), type: "terminal" as const, projectId: project.id }],
                 }
                 : w
             ),
@@ -234,9 +251,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
           if (!id) return state;
           return {
-            workspaces: state.workspaces.map((w) =>
-              w.id === id ? { ...w, activeProjectId: projectId } : w
-            ),
+            workspaces: state.workspaces.map((w) => {
+              if (w.id !== id) return w;
+              const hasPane = panesForProject(w, projectId).length > 0;
+              const panes = hasPane
+                ? w.panes
+                : [...w.panes, { id: newId(), type: "terminal" as const, projectId }];
+              return { ...w, activeProjectId: projectId, panes };
+            }),
           };
         });
       },
@@ -245,7 +267,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set((state) => {
           const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
           if (!id) return state;
-          const pane: Pane = { id: newId(), type: "terminal" as const, startupCommand };
+          const workspace = state.workspaces.find((w) => w.id === id);
+          const pane: Pane = {
+            id: newId(),
+            type: "terminal" as const,
+            startupCommand,
+            projectId: workspace?.activeProjectId ?? undefined,
+          };
           return {
             workspaces: state.workspaces.map((w) =>
               w.id === id ? { ...w, panes: [...w.panes, pane] } : w
@@ -461,6 +489,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 startupCommand: p.startupCommand,
                 title: p.title,
                 color: p.color,
+                projectRoot: w.projects.find((pr) => pr.id === p.projectId)?.root,
               })),
           };
           return { templates: [...state.templates, template] };
@@ -472,6 +501,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const template = state.templates.find((t) => t.id === templateId);
           if (!template) return state;
           const projects = template.projects.map((p) => ({ id: newId(), root: p.root }));
+          const rootToNewId = new Map(projects.map((p) => [p.root, p.id]));
           const panes: Pane[] =
             template.panes.length > 0
               ? template.panes.map((p) => ({
@@ -481,6 +511,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 startupCommand: p.startupCommand,
                 title: p.title,
                 color: p.color,
+                projectId: p.projectRoot ? rootToNewId.get(p.projectRoot) : undefined,
               }))
               : [{ id: newId(), type: "terminal" as const }];
           const nextIndex = state.workspaces.length + 1;
@@ -530,7 +561,17 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         const workspaces = p.workspaces.map((w) => {
           const panes = w.panes
             .filter((pane) => !pane.overlay)
-            .map((pane) => ({ ...pane, sessionId: undefined, running: false }));
+            .map((pane) => {
+              // Migrate panes saved before per-project scoping existed: infer
+              // which project a pane belonged to from where it was spawned,
+              // falling back to whatever project was active at save time.
+              const projectId =
+                pane.projectId ??
+                w.projects.find((pr) => pane.cwd && pane.cwd.startsWith(pr.root))?.id ??
+                w.activeProjectId ??
+                undefined;
+              return { ...pane, sessionId: undefined, running: false, projectId };
+            });
           return {
             ...w,
             activeTerminalId: null,

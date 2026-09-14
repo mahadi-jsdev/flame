@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useWorkspaceStore, Pane } from "../store/workspaceStore";
+import { useWorkspaceStore, Pane, panesForProject } from "../store/workspaceStore";
 import { Sidebar } from "./Sidebar";
 import { TerminalPane } from "./TerminalPane";
 import { SettingsDialog } from "./SettingsDialog";
@@ -70,7 +70,7 @@ const PANE_COLOR_PALETTE: (string | undefined)[] = [
 export function Workspace() {
   const store = useWorkspaceStore();
   const workspace = store.getActiveWorkspace();
-  const panes = workspace?.panes.filter((p) => !p.overlay) ?? [];
+  const panes = workspace ? panesForProject(workspace, workspace.activeProjectId) : [];
   const overlayPanes = workspace?.panes.filter((p) => p.overlay) ?? [];
   const count = panes.length;
   const activeTerminalId = workspace?.activeTerminalId ?? null;
@@ -94,7 +94,7 @@ export function Workspace() {
     const cyclePane = (dir: number) => {
       const ws = useWorkspaceStore.getState().getActiveWorkspace();
       if (!ws) return;
-      const gridPanes = ws.panes.filter((p) => !p.overlay && p.sessionId);
+      const gridPanes = panesForProject(ws, ws.activeProjectId).filter((p) => p.sessionId);
       if (gridPanes.length === 0) return;
       const idx = gridPanes.findIndex((p) => p.sessionId === ws.activeTerminalId);
       const next = gridPanes[(idx + dir + gridPanes.length) % gridPanes.length];
@@ -146,7 +146,7 @@ export function Workspace() {
       }
       if (!e.shiftKey && /^[1-9]$/.test(e.key)) {
         const ws = useWorkspaceStore.getState().getActiveWorkspace();
-        const gridPanes = ws?.panes.filter((p) => !p.overlay) ?? [];
+        const gridPanes = ws ? panesForProject(ws, ws.activeProjectId) : [];
         const target = gridPanes[Number(e.key) - 1];
         if (target?.sessionId) {
           e.preventDefault();

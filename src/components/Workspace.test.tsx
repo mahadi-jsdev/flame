@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Workspace } from "./Workspace";
 import { defaultSettings, useWorkspaceStore } from "../store/workspaceStore";
 
@@ -253,5 +253,56 @@ describe("Workspace shell", () => {
     }));
     render(<Workspace />);
     expect(screen.getByText(/2 bays · 1 live/)).toBeInTheDocument();
+  });
+
+  it("only shows panes belonging to the active project", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? {
+              ...w,
+              projects: [
+                { id: "pr1", root: "/repo/a" },
+                { id: "pr2", root: "/repo/b" },
+              ],
+              activeProjectId: "pr1",
+              panes: [
+                { id: "p1", type: "terminal" as const, projectId: "pr1", title: "web" },
+                { id: "p2", type: "terminal" as const, projectId: "pr2", title: "api" },
+              ],
+            }
+          : w,
+      ),
+    }));
+    render(<Workspace />);
+    expect(screen.getByText("web")).toBeInTheDocument();
+    expect(screen.queryByText("api")).not.toBeInTheDocument();
+
+    act(() => {
+      useWorkspaceStore.getState().setActiveProject("pr2", "w1");
+    });
+    expect(screen.getByText("api")).toBeInTheDocument();
+    expect(screen.queryByText("web")).not.toBeInTheDocument();
+  });
+
+  it("switching to a project with no panes auto-creates one", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? {
+              ...w,
+              projects: [{ id: "pr1", root: "/repo/a" }],
+              activeProjectId: null,
+              panes: [{ id: "p1", type: "terminal" as const }],
+            }
+          : w,
+      ),
+    }));
+    render(<Workspace />);
+    act(() => {
+      useWorkspaceStore.getState().setActiveProject("pr1", "w1");
+    });
+    const scoped = store().workspaces[0].panes.filter((p) => p.projectId === "pr1");
+    expect(scoped).toHaveLength(1);
   });
 });

@@ -163,11 +163,14 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
         });
 
         const { cols, rows } = term;
-        const pane = useWorkspaceStore
+        const owningWorkspace = useWorkspaceStore
           .getState()
-          .workspaces.flatMap((w) => w.panes)
-          .find((p) => p.id === paneId);
-        const cwd = pane?.cwd ?? useWorkspaceStore.getState().activeCwd();
+          .workspaces.find((w) => w.panes.some((p) => p.id === paneId));
+        const pane = owningWorkspace?.panes.find((p) => p.id === paneId);
+        const paneProjectRoot = owningWorkspace?.projects.find(
+          (pr) => pr.id === pane?.projectId,
+        )?.root;
+        const cwd = pane?.cwd ?? paneProjectRoot ?? useWorkspaceStore.getState().activeCwd();
         const { id, shell } = await spawnPty(undefined, rows, cols, cwd);
         sessionIdRef.current = id;
         useWorkspaceStore.getState().setSessionId(paneId, id, shell, cwd);

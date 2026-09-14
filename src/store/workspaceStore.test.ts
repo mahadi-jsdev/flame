@@ -329,6 +329,63 @@ describe("session persistence", () => {
     expect(s.workspaces[0].panes[0].sessionId).toBeUndefined();
     expect(s.workspaces[0].panes[0].cwd).toBe("/repo/a");
     expect(s.workspaces[0].panes[0].running).toBe(false);
+    expect(s.workspaces[0].panes[0].projectId).toBe("pr1");
+  });
+
+  it("migrates pre-existing panes to the project matching their cwd", async () => {
+    localStorage.setItem(
+      "ai-terminal-agent-settings",
+      JSON.stringify({
+        state: {
+          settings: defaultSettings,
+          activeWorkspaceId: "w1",
+          workspaces: [
+            ws({
+              projects: [
+                { id: "pr1", root: "/repo/a" },
+                { id: "pr2", root: "/repo/b" },
+              ],
+              activeProjectId: "pr2",
+              panes: [
+                { id: "p1", type: "terminal", cwd: "/repo/a" },
+                { id: "p2", type: "terminal", cwd: "/repo/b" },
+              ],
+            }),
+          ],
+        },
+        version: 0,
+      }),
+    );
+    vi.resetModules();
+    const mod = await import("./workspaceStore");
+    const s = mod.useWorkspaceStore.getState();
+    const panes = s.workspaces[0].panes;
+    expect(panes.find((p) => p.id === "p1")?.projectId).toBe("pr1");
+    expect(panes.find((p) => p.id === "p2")?.projectId).toBe("pr2");
+  });
+
+  it("falls back to the active project for a pane with no cwd", async () => {
+    localStorage.setItem(
+      "ai-terminal-agent-settings",
+      JSON.stringify({
+        state: {
+          settings: defaultSettings,
+          activeWorkspaceId: "w1",
+          workspaces: [
+            ws({
+              projects: [{ id: "pr1", root: "/repo/a" }],
+              activeProjectId: "pr1",
+              panes: [{ id: "p1", type: "terminal" }],
+            }),
+          ],
+        },
+        version: 0,
+      }),
+    );
+    vi.resetModules();
+    const mod = await import("./workspaceStore");
+    const s = mod.useWorkspaceStore.getState();
+    expect(s.workspaces[0].panes[0].projectId).toBe("pr1");
   });
 
   it("does not restore workspaces when restoreSession is disabled", async () => {
@@ -448,5 +505,81 @@ describe("workspace templates", () => {
     const id = store().templates[0].id;
     store().removeWorkspaceTemplate(id);
     expect(store().templates).toHaveLength(0);
+  });
+
+  it("preserves which project each pane belonged to via root matching", () => {
+    store().addProject("/repo/a", "w1"); // also creates a pane scoped to it
+    store().addProject("/repo/b", "w1");
+    store().saveWorkspaceTemplate("w1", "Multi");
+    store().createWorkspaceFromTemplate(store().templates[0].id);
+    const created = store().workspaces[store().workspaces.length - 1];
+
+    const projA = created.projects.find((p) => p.root === "/repo/a")!;
+    const projB = created.projects.find((p) => p.root === "/repo/b")!;
+    const paneForA = created.panes.find((p) => p.projectId === projA.id);
+    const paneForB = created.panes.find((p) => p.projectId === projB.id);
+    expect(paneForA).toBeDefined();
+    expect(paneForB).toBeDefined();
+    expect(paneForA!.id).not.toBe(paneForB!.id);
+  });
+});
+
+describe("project-scoped panes", () => {
+  it("addProject creates a bay scoped to the new project", () => {
+    store().addProject("/repo/a", "w1");
+    const project = w1().projects[0];
+    const panes = w1().panes.filter((p) => p.projectId === project.id);
+    expect(panes).toHaveLength(1);
+  });
+
+  it("addPane stamps the currently active project", () => {
+    store().addProject("/repo/a", "w1");
+    const project = w1().projects[0];
+    store().addPane("w1");
+    const newest = w1().panes[w1().panes.length - 1];
+    expect(newest.projectId).toBe(project.id);
+  });
+
+  it("addPane leaves projectId unset when no project is active", () => {
+    store().addPane("w1");
+    const newest = w1().panes[w1().panes.length - 1];
+    expect(newest.projectId).toBeUndefined();
+  });
+
+  it("setActiveProject auto-creates a bay for a project with none", () => {
+    // simulate a project added before this feature existed: no pane for it
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1" ? { ...w, projects: [{ id: "pr1", root: "/repo/a" }] } : w,
+      ),
+    }));
+    store().setActiveProject("pr1", "w1");
+    const scoped = w1().panes.filter((p) => p.projectId === "pr1");
+    expect(scoped).toHaveLength(1);
+  });
+
+  it("setActiveProject does not duplicate a bay when one already exists", () => {
+    store().addProject("/repo/a", "w1");
+    const project = w1().projects[0];
+    const before = w1().panes.filter((p) => p.projectId === project.id).length;
+    store().setActiveProject(project.id, "w1");
+    const after = w1().panes.filter((p) => p.projectId === project.id).length;
+    expect(after).toBe(before);
+  });
+
+  it("panes for one project are independent of another project's panes", () => {
+    store().addProject("/repo/a", "w1");
+    const projectA = w1().projects[0];
+    store().addPane("w1", "npm run dev"); // scoped to A, now active
+    store().addProject("/repo/b", "w1");
+    const projectB = w1().projects[1];
+
+    const panesForA = w1().panes.filter((p) => p.projectId === projectA.id);
+    const panesForB = w1().panes.filter((p) => p.projectId === projectB.id);
+    expect(panesForA).toHaveLength(2);
+    expect(panesForB).toHaveLength(1);
+    expect(panesForA.map((p) => p.id)).not.toEqual(
+      expect.arrayContaining(panesForB.map((p) => p.id)),
+    );
   });
 });
