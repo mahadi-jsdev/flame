@@ -26,6 +26,13 @@ const PROMPT_PATTERNS: RegExp[] = [
   /continue\?\s*$/im,
   /press enter to continue/i,
   /\by\/n\b/i,
+  // Claude Code (and similar Ink-based CLI menus) don't phrase their
+  // confirmation dialogs as y/n at all — they render a numbered option list
+  // with this footer, regardless of what the actual question says. This is
+  // the reliable, question-agnostic signal for that whole class of prompt.
+  /enter to (select|confirm)/i,
+  /esc(ape)? to cancel/i,
+  /\byes, and don't ask again\b/i,
 ];
 
 // Strips common CSI/OSC ANSI escape sequences so prompt text can be matched
@@ -125,7 +132,12 @@ export class TaskWatcher {
     const now = Date.now();
     this.lastDataAt = now;
     if (!this.busyStart) this.busyStart = now;
-    if (text) this.outputTail = (this.outputTail + text).slice(-500);
+    // Generous window: a colorful, boxed TUI menu (cursor positioning +
+    // color codes per line, box-drawing borders) can easily run to several
+    // thousand raw bytes for what's visually a handful of lines — too small
+    // a window here silently evicts the actual question text before it's
+    // ever matched against.
+    if (text) this.outputTail = (this.outputTail + text).slice(-4000);
     if (this.waiting) {
       this.waiting = false;
       this.onWaitingChange?.(false);

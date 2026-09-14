@@ -242,6 +242,9 @@ describe("looksLikePrompt", () => {
     "Allow this command to run?",
     "Press Enter to continue",
     "Apply changes (yes/no)?",
+    // Claude Code's actual confirmation UI: a numbered menu, not y/n text.
+    "  1. Yes\n     Proceed\n  2. No\nEnter to select · ↑/↓ to navigate · Esc to cancel",
+    "Yes, and don't ask again",
   ])("recognizes: %s", (text) => {
     expect(looksLikePrompt(text)).toBe(true);
   });
@@ -315,6 +318,24 @@ describe("TaskWatcher waiting-for-input detection", () => {
     expect(onWaitingChange).toHaveBeenLastCalledWith(true);
     w.onOutput("proceeding...");
     expect(onWaitingChange).toHaveBeenLastCalledWith(false);
+    w.stop();
+  });
+
+  it("flags waiting for a Claude Code-style numbered confirmation menu, even padded with a heavy ANSI-styled frame", () => {
+    const { w, onWaitingChange } = makeWaitingWatcher();
+    // Simulates a real Ink-rendered picker: the question line arrives first,
+    // then several KB of cursor-positioning/color escape codes and box
+    // borders as the rest of the frame paints, delivered as separate PTY
+    // chunks (as real reads would be) — well past the old 500-char tail cap.
+    w.onOutput("\x1b[2K\x1b[1GJust testing — do you want to proceed?\r\n");
+    const filler = "\x1b[38;5;240m│\x1b[0m padding to simulate a boxed TUI frame\r\n";
+    for (let i = 0; i < 40; i++) w.onOutput(filler);
+    w.onOutput(
+      "\x1b[35m❯ 1. Yes\x1b[0m\r\n     Proceed\r\n  2. No\r\n     Don't proceed\r\n  3. Type something.\r\n\r\n  4. Chat about this\r\n\r\n",
+    );
+    w.onOutput("Enter to select · ↑/↓ to navigate · Esc to cancel");
+    vi.advanceTimersByTime(2000);
+    expect(onWaitingChange).toHaveBeenCalledWith(true);
     w.stop();
   });
 });
