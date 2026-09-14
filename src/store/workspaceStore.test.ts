@@ -310,7 +310,7 @@ describe("session persistence", () => {
               projects: [{ id: "pr1", root: "/repo/a" }],
               activeProjectId: "pr1",
               panes: [
-                { id: "p1", type: "terminal", sessionId: "sess-1", cwd: "/repo/a" },
+                { id: "p1", type: "terminal", sessionId: "sess-1", cwd: "/repo/a", running: true },
                 { id: "p2", type: "terminal", overlay: true, startupCommand: "lazygit" },
               ],
               activeTerminalId: "sess-1",
@@ -328,6 +328,7 @@ describe("session persistence", () => {
     expect(s.workspaces[0].panes).toHaveLength(1);
     expect(s.workspaces[0].panes[0].sessionId).toBeUndefined();
     expect(s.workspaces[0].panes[0].cwd).toBe("/repo/a");
+    expect(s.workspaces[0].panes[0].running).toBe(false);
   });
 
   it("does not restore workspaces when restoreSession is disabled", async () => {
@@ -399,6 +400,13 @@ describe("pane titles and colors", () => {
     expect(w1().panes[0].color).toBe("#22d3ee");
     store().setPaneColor("p1", undefined, "w1");
     expect(w1().panes[0].color).toBeUndefined();
+  });
+
+  it("setPaneRunning toggles the running flag", () => {
+    store().setPaneRunning("p1", true, "w1");
+    expect(w1().panes[0].running).toBe(true);
+    store().setPaneRunning("p1", false, "w1");
+    expect(w1().panes[0].running).toBe(false);
   });
 });
 

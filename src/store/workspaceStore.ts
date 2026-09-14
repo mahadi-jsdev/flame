@@ -42,6 +42,10 @@ export interface Pane {
   overlay?: boolean;
   title?: string;
   color?: string;
+  /** Ephemeral: true while output is actively streaming. Not meaningful
+   * across restarts — reset to false whenever a persisted session is
+   * restored, since there is no live process to reflect anymore. */
+  running?: boolean;
 }
 
 export interface Workspace {
@@ -99,6 +103,7 @@ interface WorkspaceState {
   setActiveTerminal: (sessionId: string, workspaceId?: string) => void;
   renamePane: (paneId: string, title: string | undefined, workspaceId?: string) => void;
   setPaneColor: (paneId: string, color: string | undefined, workspaceId?: string) => void;
+  setPaneRunning: (paneId: string, running: boolean, workspaceId?: string) => void;
 
   saveWorkspaceTemplate: (workspaceId: string, name: string) => void;
   createWorkspaceFromTemplate: (templateId: string) => void;
@@ -342,6 +347,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             ...pane,
             id: newId(),
             sessionId: undefined,
+            running: false,
           };
           return {
             closedPanes: rest,
@@ -413,6 +419,25 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                   ...w,
                   panes: w.panes.map((p) =>
                     p.id === paneId ? { ...p, color } : p
+                  ),
+                }
+                : w
+            ),
+          };
+        });
+      },
+
+      setPaneRunning: (paneId, running, workspaceId) => {
+        set((state) => {
+          const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+          if (!id) return state;
+          return {
+            workspaces: state.workspaces.map((w) =>
+              w.id === id
+                ? {
+                  ...w,
+                  panes: w.panes.map((p) =>
+                    p.id === paneId ? { ...p, running } : p
                   ),
                 }
                 : w
@@ -505,7 +530,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         const workspaces = p.workspaces.map((w) => {
           const panes = w.panes
             .filter((pane) => !pane.overlay)
-            .map((pane) => ({ ...pane, sessionId: undefined }));
+            .map((pane) => ({ ...pane, sessionId: undefined, running: false }));
           return {
             ...w,
             activeTerminalId: null,

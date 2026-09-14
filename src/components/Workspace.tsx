@@ -4,6 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { TerminalPane } from "./TerminalPane";
 import { SettingsDialog } from "./SettingsDialog";
 import { CommandPalette } from "./CommandPalette";
+import { GitPanel } from "./GitPanel";
 import {
   Plus,
   X,
@@ -12,6 +13,7 @@ import {
   GripVertical,
   Settings,
   Folder,
+  Search,
 } from "lucide-react";
 
 function shellBadge(shell: string) {
@@ -46,6 +48,14 @@ function getGridLayout(count: number) {
   return { cols, rows: Math.ceil(count / cols) };
 }
 
+function formatUptime(totalSeconds: number) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
 const PANE_COLOR_PALETTE: (string | undefined)[] = [
   undefined,
   "#ffb238",
@@ -64,6 +74,7 @@ export function Workspace() {
   const overlayPanes = workspace?.panes.filter((p) => p.overlay) ?? [];
   const count = panes.length;
   const activeTerminalId = workspace?.activeTerminalId ?? null;
+  const liveCount = panes.filter((p) => p.running).length;
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
@@ -71,6 +82,13 @@ export function Workspace() {
   const [showPalette, setShowPalette] = useState(false);
   const [editingPaneId, setEditingPaneId] = useState<string | null>(null);
   const [editingPaneName, setEditingPaneName] = useState("");
+  const [uptimeSec, setUptimeSec] = useState(0);
+
+  useEffect(() => {
+    const start = Date.now();
+    const id = setInterval(() => setUptimeSec(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const cyclePane = (dir: number) => {
@@ -142,11 +160,7 @@ export function Workspace() {
   }, []);
 
   const { cols, rows } = getGridLayout(count);
-  const allCount = store.workspaces.length;
   const label = workspace ? workspace.name : "Workspace";
-
-  const activeIndex = panes.findIndex((p) => p.sessionId === activeTerminalId);
-  const activeNumber = activeIndex >= 0 ? activeIndex + 1 : 0;
 
   const startRenamePane = (pane: Pane, index: number) => {
     setEditingPaneId(pane.id);
@@ -181,30 +195,33 @@ export function Workspace() {
         />
 
         <header className="h-14 shrink-0 px-5 flex items-center justify-between border-b border-white/10">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-accent to-accent-2 ring-1 ring-white/10">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 rounded-xl bg-gradient-to-br from-accent to-accent-2 ring-1 ring-white/10 shrink-0">
               <Cpu size={18} className="text-[#1a1006]" />
             </div>
-            <div className="flex flex-col leading-tight">
-              <span className="font-display text-sm font-semibold tracking-wide text-[#f3e9d8]">
+            <div className="flex items-baseline gap-2 min-w-0 text-sm">
+              <span className="font-display font-semibold tracking-wide text-[#f3e9d8] truncate">
                 {label}
               </span>
-              <span className="text-[10px] font-mono text-[#a99a86] mt-0.5">
-                {count} terminal{count === 1 ? "" : "s"} · {allCount} workspace
-                {allCount === 1 ? "" : "s"}
+              <span className="text-[#6f6455] shrink-0">/</span>
+              <span className="text-[11px] font-mono text-[#a99a86] truncate">
+                {count} bay{count === 1 ? "" : "s"} · {liveCount} live · uptime{" "}
+                <span className="tabular-nums">{formatUptime(uptimeSec)}</span>
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setShowPalette(true)}
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-accent/40 transition-colors text-xs font-medium text-[#a99a86] hover:text-[#f3e9d8]"
+              className="hidden sm:flex items-center gap-3 w-64 px-3 py-1.5 rounded-lg bg-black/30 border border-white/10 hover:border-white/20 transition-colors text-left"
               title="Command palette"
             >
-              <Command size={13} />
-              <span>Commands</span>
-              <kbd className="text-[10px] font-mono text-[#6f6455] bg-black/30 px-1.5 py-0.5 rounded border border-white/10">
+              <Search size={13} className="text-[#6f6455] shrink-0" />
+              <span className="flex-1 text-[12.5px] text-[#8a7c68] truncate">
+                Search or run a command
+              </span>
+              <kbd className="text-[10px] font-mono text-[#6f6455] bg-black/40 px-1.5 py-0.5 rounded border border-white/10 shrink-0">
                 ⌘K
               </kbd>
             </button>
@@ -220,7 +237,7 @@ export function Workspace() {
               className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent border border-accent hover:bg-[#ffbe57] hover:border-[#ffbe57] transition-colors text-xs font-semibold text-[#1a1006]"
             >
               <Plus size={14} />
-              <span>New Terminal</span>
+              <span>New Bay</span>
               <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded border border-[#1a1006]/25 text-[#1a1006]/70">
                 <Command size={10} />
                 <span>+</span>
@@ -231,145 +248,153 @@ export function Workspace() {
           </div>
         </header>
 
-        <main
-          className="flex-1 min-w-0 overflow-auto grid gap-3 p-3"
-          style={{
-            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
-          }}
-        >
-          {panes.map((pane, index) => {
-            const isActive = pane.sessionId === activeTerminalId;
-            const isDragging = dragId === pane.id;
-            const isDropTarget = dropTargetId === pane.id && !isDragging;
-            const isEditing = editingPaneId === pane.id;
-            const displayTitle = pane.title ?? `Terminal ${index + 1}`;
-            return (
-              <div
-                key={pane.id}
-                onDragOver={(e) => {
-                  if (!dragId || dragId === pane.id) return;
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                  setDropTargetId(pane.id);
-                }}
-                onDragLeave={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                    setDropTargetId(null);
-                  }
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const src = e.dataTransfer.getData("application/x-pane-id");
-                  if (src && src !== pane.id) store.swapPanes(src, pane.id);
-                  setDragId(null);
-                  setDropTargetId(null);
-                }}
-                className={`terminal-card group min-h-0 h-full w-full flex flex-col rounded-2xl border overflow-hidden transition-colors duration-200 bg-[#1d1811]/70 ${
-                  isDropTarget
-                    ? "border-accent/60"
-                    : isActive
-                      ? "border-accent/40"
-                      : "border-white/10 hover:border-white/20"
-                } ${isDragging ? "opacity-40 scale-[0.99]" : ""}`}
-              >
+        <div className="flex-1 min-h-0 flex gap-3 p-3 overflow-hidden">
+          <main
+            className="flex-1 min-w-0 overflow-auto grid gap-3"
+            style={{
+              gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+              gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+            }}
+          >
+            {panes.map((pane, index) => {
+              const isActive = pane.sessionId === activeTerminalId;
+              const isDragging = dragId === pane.id;
+              const isDropTarget = dropTargetId === pane.id && !isDragging;
+              const isEditing = editingPaneId === pane.id;
+              const displayTitle = pane.title ?? `Terminal ${index + 1}`;
+              return (
                 <div
-                  draggable={count > 1 && !isEditing}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData("application/x-pane-id", pane.id);
-                    e.dataTransfer.effectAllowed = "move";
-                    setDragId(pane.id);
+                  key={pane.id}
+                  onDragOver={(e) => {
+                    if (!dragId || dragId === pane.id) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    setDropTargetId(pane.id);
                   }}
-                  onDragEnd={() => {
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setDropTargetId(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const src = e.dataTransfer.getData("application/x-pane-id");
+                    if (src && src !== pane.id) store.swapPanes(src, pane.id);
                     setDragId(null);
                     setDropTargetId(null);
                   }}
-                  className={`h-10 shrink-0 flex items-center justify-between px-3 border-b transition-colors ${
-                    isActive ? "border-white/10 bg-white/[0.02]" : "border-white/10"
-                  } ${count > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
-                  title={count > 1 ? "Drag to rearrange" : undefined}
+                  className={`terminal-card group min-h-0 h-full w-full flex flex-col rounded-2xl border overflow-hidden transition-colors duration-200 bg-[#1d1811]/70 ${
+                    isDropTarget
+                      ? "border-accent/60"
+                      : isActive
+                        ? "border-accent/40"
+                        : "border-white/10 hover:border-white/20"
+                  } ${isDragging ? "opacity-40 scale-[0.99]" : ""}`}
                 >
-                  <div className="flex items-center gap-2 text-xs font-medium min-w-0">
-                    {count > 1 && (
-                      <GripVertical
-                        size={12}
-                        className="shrink-0 text-[#6f6455] opacity-0 group-hover:opacity-100 transition-opacity"
-                      />
-                    )}
-                    <span
-                      className={`shrink-0 w-1.5 h-1.5 rounded-full ${
-                        isActive ? "bg-accent animate-pulse-soft" : "bg-[#6f6455]"
-                      }`}
-                      style={isActive ? { boxShadow: "0 0 6px 1px var(--color-accent)" } : undefined}
-                    />
-                    <button
-                      onClick={() => cyclePaneColor(pane)}
-                      className="shrink-0 w-2 h-2 rounded-sm border border-white/20 transition-transform hover:scale-125"
-                      style={{ backgroundColor: pane.color ?? "transparent" }}
-                      title="Click to cycle tag color"
-                    />
-                    {isEditing ? (
-                      <input
-                        autoFocus
-                        value={editingPaneName}
-                        onChange={(e) => setEditingPaneName(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        onFocus={(e) => e.target.select()}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") commitRenamePane();
-                          if (e.key === "Escape") setEditingPaneId(null);
-                        }}
-                        onBlur={commitRenamePane}
-                        className="min-w-0 w-24 bg-black/30 border border-accent/40 rounded px-1 py-0.5 font-mono text-xs text-accent outline-none"
-                      />
-                    ) : (
-                      <span
-                        className="font-mono font-semibold truncate"
-                        style={{ color: pane.color ?? "#f3e9d8" }}
-                        onDoubleClick={() => startRenamePane(pane, index)}
-                        title="Double-click to rename"
-                      >
-                        {displayTitle}
-                      </span>
-                    )}
-                    {pane.shell && (
-                      <span
-                        className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium border ${shellBadge(pane.shell)}`}
-                        title={`Shell: ${pane.shell}`}
-                      >
-                        {pane.shell}
-                      </span>
-                    )}
-                    {pane.cwd && (
-                      <span
-                        className="hidden md:inline-flex items-center gap-1 text-[10px] text-[#6f6455] font-mono max-w-[160px] min-w-0"
-                        title={pane.cwd}
-                      >
-                        <Folder size={10} className="shrink-0" />
-                        <span className="truncate">{baseName(pane.cwd)}</span>
-                      </span>
-                    )}
-                    {isActive && (
-                      <span className="ml-1 text-[9.5px] font-mono uppercase tracking-wider text-accent">
-                        active
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => store.removePane(pane.id)}
-                    className="p-1.5 rounded-md text-[#6f6455] hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
-                    title="Close terminal"
+                  <div
+                    draggable={count > 1 && !isEditing}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("application/x-pane-id", pane.id);
+                      e.dataTransfer.effectAllowed = "move";
+                      setDragId(pane.id);
+                    }}
+                    onDragEnd={() => {
+                      setDragId(null);
+                      setDropTargetId(null);
+                    }}
+                    className={`h-10 shrink-0 flex items-center gap-2 px-3 border-b transition-colors ${
+                      isActive ? "border-white/10 bg-white/[0.02]" : "border-white/10"
+                    } ${count > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
+                    title={count > 1 ? "Drag to rearrange" : undefined}
                   >
-                    <X size={13} />
-                  </button>
+                    <div className="flex-1 flex items-center gap-2 text-xs font-medium min-w-0">
+                      {count > 1 && (
+                        <GripVertical
+                          size={12}
+                          className="shrink-0 text-[#6f6455] opacity-0 group-hover:opacity-100 transition-opacity"
+                        />
+                      )}
+                      <span
+                        className={`shrink-0 w-1.5 h-1.5 rounded-full ${
+                          pane.running ? "bg-accent animate-pulse-soft" : "bg-[#6f6455]"
+                        }`}
+                        style={pane.running ? { boxShadow: "0 0 6px 1px var(--color-accent)" } : undefined}
+                      />
+                      <button
+                        onClick={() => cyclePaneColor(pane)}
+                        className="shrink-0 w-2 h-2 rounded-sm border border-white/20 transition-transform hover:scale-125"
+                        style={{ backgroundColor: pane.color ?? "transparent" }}
+                        title="Click to cycle tag color"
+                      />
+                      {isEditing ? (
+                        <input
+                          autoFocus
+                          value={editingPaneName}
+                          onChange={(e) => setEditingPaneName(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          onFocus={(e) => e.target.select()}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") commitRenamePane();
+                            if (e.key === "Escape") setEditingPaneId(null);
+                          }}
+                          onBlur={commitRenamePane}
+                          className="min-w-0 w-24 bg-black/30 border border-accent/40 rounded px-1 py-0.5 font-mono text-xs text-accent outline-none"
+                        />
+                      ) : (
+                        <span
+                          className="font-mono font-semibold truncate"
+                          style={{ color: pane.color ?? "#f3e9d8" }}
+                          onDoubleClick={() => startRenamePane(pane, index)}
+                          title="Double-click to rename"
+                        >
+                          {displayTitle}
+                        </span>
+                      )}
+                      {pane.shell && (
+                        <span
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium border ${shellBadge(pane.shell)}`}
+                          title={`Shell: ${pane.shell}`}
+                        >
+                          {pane.shell}
+                        </span>
+                      )}
+                      {pane.cwd && (
+                        <span
+                          className="hidden md:inline-flex items-center gap-1 text-[10px] text-[#6f6455] font-mono max-w-[160px] min-w-0"
+                          title={pane.cwd}
+                        >
+                          <Folder size={10} className="shrink-0" />
+                          <span className="truncate">{baseName(pane.cwd)}</span>
+                        </span>
+                      )}
+                    </div>
+                    {pane.sessionId && (
+                      <span
+                        className={`shrink-0 text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
+                          pane.running ? "bg-accent/15 text-accent" : "bg-white/[0.04] text-[#6f6455]"
+                        }`}
+                      >
+                        {pane.running ? "running" : "idle"}
+                      </span>
+                    )}
+                    <button
+                      onClick={() => store.removePane(pane.id)}
+                      className="p-1.5 rounded-md text-[#6f6455] hover:bg-rose-500/20 hover:text-rose-300 transition-colors shrink-0"
+                      title="Close terminal"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                  <div className="flex-1 min-h-0 relative bg-[#0e0b08]">
+                    <TerminalPane paneId={pane.id} />
+                  </div>
                 </div>
-                <div className="flex-1 min-h-0 relative bg-[#0e0b08]">
-                  <TerminalPane paneId={pane.id} />
-                </div>
-              </div>
-            );
-          })}
-        </main>
+              );
+            })}
+          </main>
+
+          <GitPanel />
+        </div>
 
         {overlayPanes.map((pane) => (
           <div
@@ -424,11 +449,6 @@ export function Workspace() {
               style={{ boxShadow: "0 0 6px 1px var(--color-accent)" }}
             />
             SYSTEM NOMINAL
-            {activeNumber > 0 && (
-              <span className="ml-2 inline-flex items-center gap-1.5 text-[#a99a86]">
-                · terminal {activeNumber} active
-              </span>
-            )}
           </span>
           <span className="hidden sm:inline-flex items-center gap-1.5">
             <kbd className="px-1.5 py-0.5 rounded bg-black/30 border border-white/10 text-[10px]">
@@ -439,7 +459,7 @@ export function Workspace() {
             <kbd className="px-1.5 py-0.5 rounded bg-black/30 border border-white/10 text-[10px]">
               ⌘⇧T
             </kbd>
-            <span>new terminal</span>
+            <span>new bay</span>
             <span className="text-white/10 mx-1">·</span>
             <span>drag headers to rearrange</span>
           </span>

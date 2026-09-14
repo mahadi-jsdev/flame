@@ -38,7 +38,7 @@ describe("Workspace shell", () => {
     render(<Workspace />);
     // name appears in header and sidebar row
     expect(screen.getAllByText("Workspace 1").length).toBeGreaterThan(0);
-    expect(screen.getByText(/1 terminal/)).toBeInTheDocument();
+    expect(screen.getByText(/1 bay/)).toBeInTheDocument();
   });
 
   it("renders one pane header per pane", () => {
@@ -48,9 +48,9 @@ describe("Workspace shell", () => {
     expect(screen.getByText("Terminal 2")).toBeInTheDocument();
   });
 
-  it("New Terminal button adds a pane", () => {
+  it("New Bay button adds a pane", () => {
     render(<Workspace />);
-    fireEvent.click(screen.getByText("New Terminal"));
+    fireEvent.click(screen.getByText("New Bay"));
     expect(store().workspaces[0].panes).toHaveLength(2);
   });
 
@@ -210,5 +210,48 @@ describe("Workspace shell", () => {
     render(<Workspace />);
     fireEvent.keyDown(window, { key: "1", ctrlKey: true });
     expect(store().workspaces[0].activeTerminalId).toBe("s1");
+  });
+
+  it("shows a running badge for a busy pane and idle for a quiet one", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? {
+              ...w,
+              panes: [
+                { id: "p1", type: "terminal" as const, sessionId: "s1", running: true },
+                { id: "p2", type: "terminal" as const, sessionId: "s2", running: false },
+              ],
+            }
+          : w,
+      ),
+    }));
+    render(<Workspace />);
+    expect(screen.getByText("running")).toBeInTheDocument();
+    expect(screen.getByText("idle")).toBeInTheDocument();
+  });
+
+  it("shows no status badge for a pane that hasn't spawned a session yet", () => {
+    render(<Workspace />);
+    expect(screen.queryByText("running")).not.toBeInTheDocument();
+    expect(screen.queryByText("idle")).not.toBeInTheDocument();
+  });
+
+  it("header reports the live pane count", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? {
+              ...w,
+              panes: [
+                { id: "p1", type: "terminal" as const, sessionId: "s1", running: true },
+                { id: "p2", type: "terminal" as const, sessionId: "s2", running: false },
+              ],
+            }
+          : w,
+      ),
+    }));
+    render(<Workspace />);
+    expect(screen.getByText(/2 bays · 1 live/)).toBeInTheDocument();
   });
 });

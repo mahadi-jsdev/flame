@@ -1,31 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { ProjectPanel } from "./ProjectPanel";
-import {
-  defaultSettings,
-  useWorkspaceStore,
-} from "../store/workspaceStore";
+import { defaultSettings, useWorkspaceStore } from "../store/workspaceStore";
 
 const mocks = vi.hoisted(() => ({
-  gitStatus: vi.fn(async () => [
-    { status: " M", path: "src/a.ts", original_path: null },
-    { status: "??", path: "new.txt", original_path: null },
-  ]),
-  gitBranch: vi.fn(async () => "main"),
-  gitBranches: vi.fn(async () => ["main", "dev"]),
-  gitCheckout: vi.fn(async () => {}),
-  gitRoot: vi.fn(async () => "/repo"),
-  gitAutoCommit: vi.fn(async () => "feat: add the thing"),
+  pickDirectory: vi.fn(async (): Promise<string | null> => "/picked/dir"),
 }));
 
 vi.mock("../lib/tauri", () => ({
-  GitStatusEntry: undefined,
-  gitStatus: mocks.gitStatus,
-  gitBranch: mocks.gitBranch,
-  gitBranches: mocks.gitBranches,
-  gitCheckout: mocks.gitCheckout,
-  gitRoot: mocks.gitRoot,
-  gitAutoCommit: mocks.gitAutoCommit,
+  pickDirectory: mocks.pickDirectory,
 }));
 
 function reset() {
@@ -34,8 +17,8 @@ function reset() {
       {
         id: "w1",
         name: "W1",
-        projects: [{ id: "pr1", root: "/repo" }],
-        activeProjectId: "pr1",
+        projects: [],
+        activeProjectId: null,
         panes: [{ id: "p1", type: "terminal" }],
         activeTerminalId: null,
       },
@@ -56,74 +39,94 @@ beforeEach(() => {
 });
 
 describe("ProjectPanel", () => {
-  it("renders branch name and changed files", async () => {
+  it("shows an empty state with no projects", () => {
     render(<ProjectPanel />);
-    expect(await screen.findByText("main")).toBeInTheDocument();
-    expect(await screen.findByText("a.ts")).toBeInTheDocument();
-    expect(screen.getByText("new.txt")).toBeInTheDocument();
+    expect(screen.getByText("No projects yet")).toBeInTheDocument();
   });
 
-  it("clicking a file opens an overlay pane with the diff", async () => {
+  it("adding a project via the empty state calls pickDirectory and stores it", async () => {
     render(<ProjectPanel />);
-    const row = await screen.findByText("a.ts");
-    fireEvent.click(row);
-    const overlay = store().workspaces[0].panes.find((p) => p.overlay);
-    expect(overlay).toBeDefined();
-    expect(overlay!.title).toBe("diff: a.ts");
-    expect(overlay!.startupCommand).toContain("git -C");
-    expect(overlay!.startupCommand).toContain("a.ts");
-  });
-
-  it("branch dropdown lists branches and switches", async () => {
-    render(<ProjectPanel />);
-    fireEvent.click(await screen.findByText("main"));
-    const dev = await screen.findByText("dev");
-    fireEvent.click(dev);
-    expect(mocks.gitCheckout).toHaveBeenCalledWith("/repo", "dev");
-  });
-
-  it("lazygit button opens overlay with lazygit", async () => {
-    render(<ProjectPanel />);
-    fireEvent.click(
-      await screen.findByTitle("Open lazygit in a new terminal"),
+    fireEvent.click(screen.getByText("Add Project"));
+    await vi.waitFor(() =>
+      expect(store().workspaces[0].projects.map((p) => p.root)).toContain(
+        "/picked/dir",
+      ),
     );
-    const overlay = store().workspaces[0].panes.find((p) => p.overlay);
-    expect(overlay?.title).toBe("lazygit");
-    expect(overlay?.startupCommand).toContain("lazygit -p '/repo'");
   });
 
-  it("auto-commit without a configured key surfaces the backend error", async () => {
-    mocks.gitAutoCommit.mockRejectedValueOnce(
-      new Error("no OpenAI API key configured — set one in Settings"),
-    );
+  it("adding via the header plus button also works", async () => {
     render(<ProjectPanel />);
-    fireEvent.click(
-      await screen.findByTitle("AI auto-commit (stages all changes)"),
+    fireEvent.click(screen.getByTitle("Add project"));
+    await vi.waitFor(() =>
+      expect(store().workspaces[0].projects).toHaveLength(1),
     );
-    expect(
-      await screen.findByText(/no OpenAI API key configured/),
-    ).toBeInTheDocument();
-    expect(mocks.gitAutoCommit).toHaveBeenCalledWith("/repo", "gpt-4o-mini");
   });
 
-  it("auto-commit commits and shows the message", async () => {
+  it("declining the directory picker adds nothing", async () => {
+    mocks.pickDirectory.mockResolvedValueOnce(null);
     render(<ProjectPanel />);
-    fireEvent.click(
-      await screen.findByTitle("AI auto-commit (stages all changes)"),
-    );
-    expect(await screen.findByText("feat: add the thing")).toBeInTheDocument();
-    expect(mocks.gitAutoCommit).toHaveBeenCalledWith("/repo", "gpt-4o-mini");
-    expect(mocks.gitStatus).toHaveBeenCalled(); // refresh after commit
+    fireEvent.click(screen.getByTitle("Add project"));
+    await vi.waitFor(() => expect(mocks.pickDirectory).toHaveBeenCalled());
+    expect(store().workspaces[0].projects).toHaveLength(0);
   });
 
-  it("auto-commit failure surfaces the error", async () => {
-    mocks.gitAutoCommit.mockRejectedValueOnce(new Error("OpenAI HTTP 401"));
+  it("lists projects and marks the active one", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) => ({
+        ...w,
+        projects: [
+          { id: "pr1", root: "/repo/agent-web" },
+          { id: "pr2", root: "/repo/billing-service" },
+        ],
+        activeProjectId: "pr1",
+      })),
+    }));
     render(<ProjectPanel />);
-    fireEvent.click(
-      await screen.findByTitle("AI auto-commit (stages all changes)"),
-    );
-    expect(
-      await screen.findByText(/OpenAI HTTP 401/),
-    ).toBeInTheDocument();
+    expect(screen.getByText("agent-web")).toBeInTheDocument();
+    expect(screen.getByText("billing-service")).toBeInTheDocument();
+  });
+
+  it("clicking a project makes it active", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) => ({
+        ...w,
+        projects: [
+          { id: "pr1", root: "/repo/agent-web" },
+          { id: "pr2", root: "/repo/billing-service" },
+        ],
+        activeProjectId: "pr1",
+      })),
+    }));
+    render(<ProjectPanel />);
+    fireEvent.click(screen.getByText("billing-service"));
+    expect(store().workspaces[0].activeProjectId).toBe("pr2");
+  });
+
+  it("removes a project when more than one exists", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) => ({
+        ...w,
+        projects: [
+          { id: "pr1", root: "/repo/agent-web" },
+          { id: "pr2", root: "/repo/billing-service" },
+        ],
+        activeProjectId: "pr1",
+      })),
+    }));
+    render(<ProjectPanel />);
+    fireEvent.click(screen.getAllByTitle("Remove project")[0]);
+    expect(store().workspaces[0].projects).toHaveLength(1);
+  });
+
+  it("hides the remove button when only one project exists", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) => ({
+        ...w,
+        projects: [{ id: "pr1", root: "/repo/agent-web" }],
+        activeProjectId: "pr1",
+      })),
+    }));
+    render(<ProjectPanel />);
+    expect(screen.queryByTitle("Remove project")).not.toBeInTheDocument();
   });
 });

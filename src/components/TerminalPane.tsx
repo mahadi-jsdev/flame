@@ -44,6 +44,15 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
     let unsubActive: () => void = () => {};
     let resizeObserver: ResizeObserver | null = null;
     let autoTagged = false;
+    let runningTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const markRunning = () => {
+      useWorkspaceStore.getState().setPaneRunning(paneId, true);
+      if (runningTimeout) clearTimeout(runningTimeout);
+      runningTimeout = setTimeout(() => {
+        useWorkspaceStore.getState().setPaneRunning(paneId, false);
+      }, 1200);
+    };
     const watcher = new TaskWatcher({
       onDone: (command) => void maybeNotify(command),
       onCommand: (command) => maybeAutoTag(command),
@@ -122,6 +131,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
     const cleanup = async () => {
       resizeObserver?.disconnect();
       watcher.stop();
+      if (runningTimeout) clearTimeout(runningTimeout);
       unlistenData();
       unlistenExit();
       unsubSettings();
@@ -184,6 +194,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
         const unlistenDataPromise = onPtyData((payload) => {
           if (payload.id !== id) return;
           watcher.onOutput();
+          markRunning();
           const bytes = new Uint8Array(
             atob(payload.chunk_b64)
               .split("")
@@ -194,6 +205,8 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
 
         const unlistenExitPromise = onPtyExit((payload) => {
           if (payload.id !== id) return;
+          if (runningTimeout) clearTimeout(runningTimeout);
+          useWorkspaceStore.getState().setPaneRunning(paneId, false);
           term.writeln("\r\n[session ended]");
         });
 
