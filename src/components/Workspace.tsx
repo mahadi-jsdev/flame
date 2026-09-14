@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useWorkspaceStore, Pane, panesForProject } from "../store/workspaceStore";
 import { Sidebar } from "./Sidebar";
 import { TitleBar } from "./TitleBar";
@@ -47,9 +47,20 @@ function getGridLayout(count: number) {
   // 2: side by side. 3: two on top, one spanning the full bottom row
   // (see paneSpanStyle). 4: that bottom row splits in half too, giving an
   // even 2x2 grid with no spanning needed.
+  if (count === 2) return { cols: 2, rows: 1 };
   if (count <= 4) return { cols: 2, rows: 2 };
   const cols = 3;
   return { cols, rows: Math.ceil(count / cols) };
+}
+
+/** The one pane that needs an explicit CSS grid placement to get the
+ * "master + full-width stack" shape described above — every other count
+ * fills its grid cleanly via normal row-major auto-placement. */
+function paneSpanStyle(index: number, count: number): CSSProperties {
+  if (count === 3 && index === 2) {
+    return { gridColumn: "1 / -1" };
+  }
+  return {};
 }
 
 function formatUptime(totalSeconds: number) {
@@ -313,6 +324,7 @@ export function Workspace() {
                     setDragId(null);
                     setDropTargetId(null);
                   }}
+                  style={paneSpanStyle(index, count)}
                   className={`terminal-card group min-h-0 h-full w-full flex flex-col rounded-2xl border overflow-hidden transition-colors duration-200 bg-[#1d1811]/70 ${
                     !isVisible
                       ? "hidden"
