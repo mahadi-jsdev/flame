@@ -1,4 +1,10 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { useWorkspaceStore, Pane, panesForProject } from "../store/workspaceStore";
 import { Sidebar } from "./Sidebar";
 import { TitleBar } from "./TitleBar";
@@ -16,6 +22,8 @@ import {
   Folder,
   Search,
   PanelLeftOpen,
+  Minimize2,
+  Maximize2,
 } from "lucide-react";
 
 function shellBadge(shell: string) {
@@ -42,23 +50,53 @@ function baseName(path: string) {
   );
 }
 
-function getGridLayout(count: number) {
-  if (count <= 1) return { cols: 1, rows: 1 };
-  // 2: side by side. 3: two on top, one spanning the full bottom row
-  // (see paneSpanStyle). 4: that bottom row splits in half too, giving an
-  // even 2x2 grid with no spanning needed.
-  if (count === 2) return { cols: 2, rows: 1 };
-  if (count <= 4) return { cols: 2, rows: 2 };
-  const cols = 3;
-  return { cols, rows: Math.ceil(count / cols) };
+// Counts 2-4 get a hand-placed layout (2: side by side; 3: two on top, one
+// spanning the full bottom row; 4: that bottom row splits in half too) with
+// a real draggable gutter track between cells. 5+ falls back to a plain
+// wrapping grid. Every pane div stays a flat, constant-depth child of
+// <main> across all of this — only its own gridColumn/gridRow placement
+// changes — so a pane's React identity (and thus its PTY) is never
+// disturbed by adding, removing, or resizing panes.
+const GUTTER = 6; // px
+
+function hasDraggableLayout(count: number) {
+  return count >= 2 && count <= 4;
 }
 
-/** The one pane that needs an explicit CSS grid placement to get the
- * "master + full-width stack" shape described above — every other count
- * fills its grid cleanly via normal row-major auto-placement. */
-function paneSpanStyle(index: number, count: number): CSSProperties {
-  if (count === 3 && index === 2) {
-    return { gridColumn: "1 / -1" };
+function getGridTemplate(count: number, colSplit: number, rowSplit: number) {
+  if (count === 2) {
+    return {
+      gridTemplateColumns: `minmax(0,${colSplit}fr) ${GUTTER}px minmax(0,${1 - colSplit}fr)`,
+      gridTemplateRows: "minmax(0,1fr)",
+    };
+  }
+  if (hasDraggableLayout(count)) {
+    return {
+      gridTemplateColumns: `minmax(0,${colSplit}fr) ${GUTTER}px minmax(0,${1 - colSplit}fr)`,
+      gridTemplateRows: `minmax(0,${rowSplit}fr) ${GUTTER}px minmax(0,${1 - rowSplit}fr)`,
+    };
+  }
+  const cols = count <= 1 ? 1 : 3;
+  return {
+    gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+    gridTemplateRows: `repeat(${Math.max(1, Math.ceil(count / cols))}, minmax(0, 1fr))`,
+  };
+}
+
+function panePlacement(index: number, count: number): CSSProperties {
+  if (count === 2) {
+    return index === 0 ? { gridColumn: "1", gridRow: "1" } : { gridColumn: "3", gridRow: "1" };
+  }
+  if (count === 3) {
+    if (index === 0) return { gridColumn: "1", gridRow: "1" };
+    if (index === 1) return { gridColumn: "3", gridRow: "1" };
+    return { gridColumn: "1 / 4", gridRow: "3" };
+  }
+  if (count === 4) {
+    return {
+      gridColumn: index % 2 === 0 ? "1" : "3",
+      gridRow: index < 2 ? "1" : "3",
+    };
   }
   return {};
 }
@@ -85,11 +123,13 @@ const PANE_COLOR_PALETTE: (string | undefined)[] = [
 export function Workspace() {
   const store = useWorkspaceStore();
   const workspace = store.getActiveWorkspace();
-  const panes = workspace ? panesForProject(workspace, workspace.activeProjectId) : [];
+  const projectPanes = workspace ? panesForProject(workspace, workspace.activeProjectId) : [];
+  const panes = projectPanes.filter((p) => !p.backgrounded);
+  const backgroundedPanes = projectPanes.filter((p) => p.backgrounded);
   const overlayPanes = workspace?.panes.filter((p) => p.overlay) ?? [];
   const count = panes.length;
   const activeTerminalId = workspace?.activeTerminalId ?? null;
-  const liveCount = panes.filter((p) => p.running).length;
+  const liveCount = projectPanes.filter((p) => p.running).length;
   const visibleIds = new Set(panes.map((p) => p.id));
 
   // Every non-overlay pane across every workspace stays mounted here — only
@@ -107,6 +147,39 @@ export function Workspace() {
   const [editingPaneId, setEditingPaneId] = useState<string | null>(null);
   const [editingPaneName, setEditingPaneName] = useState("");
   const [uptimeSec, setUptimeSec] = useState(0);
+  const [colSplit, setColSplit] = useState(0.5);
+  const [rowSplit, setRowSplit] = useState(0.5);
+  const mainRef = useRef<HTMLDivElement>(null);
+
+  const startColDrag = (e: ReactPointerEvent) => {
+    e.preventDefault();
+    const rect = mainRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const onMove = (ev: PointerEvent) => {
+      setColSplit(Math.min(0.85, Math.max(0.15, (ev.clientX - rect.left) / rect.width)));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  const startRowDrag = (e: ReactPointerEvent) => {
+    e.preventDefault();
+    const rect = mainRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const onMove = (ev: PointerEvent) => {
+      setRowSplit(Math.min(0.85, Math.max(0.15, (ev.clientY - rect.top) / rect.height)));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
 
   useEffect(() => {
     const start = Date.now();
@@ -118,7 +191,9 @@ export function Workspace() {
     const cyclePane = (dir: number) => {
       const ws = useWorkspaceStore.getState().getActiveWorkspace();
       if (!ws) return;
-      const gridPanes = panesForProject(ws, ws.activeProjectId).filter((p) => p.sessionId);
+      const gridPanes = panesForProject(ws, ws.activeProjectId).filter(
+        (p) => p.sessionId && !p.backgrounded,
+      );
       if (gridPanes.length === 0) return;
       const idx = gridPanes.findIndex((p) => p.sessionId === ws.activeTerminalId);
       const next = gridPanes[(idx + dir + gridPanes.length) % gridPanes.length];
@@ -170,7 +245,9 @@ export function Workspace() {
       }
       if (!e.shiftKey && /^[1-9]$/.test(e.key)) {
         const ws = useWorkspaceStore.getState().getActiveWorkspace();
-        const gridPanes = ws ? panesForProject(ws, ws.activeProjectId) : [];
+        const gridPanes = ws
+          ? panesForProject(ws, ws.activeProjectId).filter((p) => !p.backgrounded)
+          : [];
         const target = gridPanes[Number(e.key) - 1];
         if (target?.sessionId) {
           e.preventDefault();
@@ -183,7 +260,8 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const { cols, rows } = getGridLayout(count);
+  const gridTemplate = getGridTemplate(count, colSplit, rowSplit);
+  const draggable = hasDraggableLayout(count);
   const label = workspace ? workspace.name : "Workspace";
 
   const startRenamePane = (pane: Pane, index: number) => {
@@ -286,22 +364,60 @@ export function Workspace() {
           </div>
         </header>
 
+        {backgroundedPanes.length > 0 && (
+          <div className="shrink-0 flex items-center gap-2 px-5 py-2 border-b border-white/10 overflow-x-auto">
+            <span className="shrink-0 text-[10px] font-display font-semibold text-[#6f6455] uppercase tracking-widest">
+              Background
+            </span>
+            {backgroundedPanes.map((pane) => {
+              const num = projectPanes.findIndex((p) => p.id === pane.id) + 1;
+              return (
+                <button
+                  key={pane.id}
+                  onClick={() => store.setPaneBackgrounded(pane.id, false)}
+                  className="group shrink-0 flex items-center gap-1.5 pl-2.5 pr-2 py-1 rounded-full bg-white/[0.04] border border-white/10 hover:border-accent/40 hover:bg-white/[0.06] transition-colors"
+                  title="Bring to foreground"
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      pane.running ? "bg-accent animate-pulse-soft" : "bg-[#6f6455]"
+                    }`}
+                  />
+                  <span
+                    className="text-[11px] font-mono truncate max-w-[120px]"
+                    style={{ color: pane.color ?? "#d9cbb5" }}
+                  >
+                    {pane.title ?? `Terminal ${num}`}
+                  </span>
+                  <Maximize2
+                    size={11}
+                    className="text-[#6f6455] group-hover:text-accent transition-colors"
+                  />
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="flex-1 min-h-0 flex gap-3 p-3 overflow-hidden">
           <main
-            className="flex-1 min-w-0 overflow-auto grid gap-3"
-            style={{
-              gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-              gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
-            }}
+            ref={mainRef}
+            className={`flex-1 min-w-0 overflow-auto grid ${draggable ? "" : "gap-3"}`}
+            style={gridTemplate}
           >
             {allPanes.map((pane) => {
               const isVisible = visibleIds.has(pane.id);
+              // Grid placement needs the pane's position among only the
+              // currently-visible panes; the display number stays stable
+              // (based on the full project set) so it doesn't jump around
+              // as panes are sent to/from the background.
               const index = panes.findIndex((p) => p.id === pane.id);
+              const stableNumber = projectPanes.findIndex((p) => p.id === pane.id);
               const isActive = pane.sessionId === activeTerminalId;
               const isDragging = dragId === pane.id;
               const isDropTarget = dropTargetId === pane.id && !isDragging;
               const isEditing = editingPaneId === pane.id;
-              const displayTitle = pane.title ?? `Terminal ${index + 1}`;
+              const displayTitle = pane.title ?? `Terminal ${stableNumber + 1}`;
               return (
                 <div
                   key={pane.id}
@@ -324,7 +440,7 @@ export function Workspace() {
                     setDragId(null);
                     setDropTargetId(null);
                   }}
-                  style={paneSpanStyle(index, count)}
+                  style={panePlacement(index, count)}
                   className={`terminal-card group min-h-0 h-full w-full flex flex-col rounded-2xl border overflow-hidden transition-colors duration-200 bg-[#1d1811]/70 ${
                     !isVisible
                       ? "hidden"
@@ -388,7 +504,7 @@ export function Workspace() {
                         <span
                           className="font-mono font-semibold truncate"
                           style={{ color: pane.color ?? "#f3e9d8" }}
-                          onDoubleClick={() => startRenamePane(pane, index)}
+                          onDoubleClick={() => startRenamePane(pane, stableNumber)}
                           title="Double-click to rename"
                         >
                           {displayTitle}
@@ -422,6 +538,13 @@ export function Workspace() {
                       </span>
                     )}
                     <button
+                      onClick={() => store.setPaneBackgrounded(pane.id, true)}
+                      className="p-1.5 rounded-md text-[#6f6455] hover:bg-white/[0.06] hover:text-accent transition-colors shrink-0"
+                      title="Send to background"
+                    >
+                      <Minimize2 size={12} />
+                    </button>
+                    <button
                       onClick={() => store.removePane(pane.id)}
                       className="p-1.5 rounded-md text-[#6f6455] hover:bg-rose-500/20 hover:text-rose-300 transition-colors shrink-0"
                       title="Close terminal"
@@ -435,6 +558,25 @@ export function Workspace() {
                 </div>
               );
             })}
+
+            {draggable && (
+              <div
+                onPointerDown={startColDrag}
+                style={{ gridColumn: "2", gridRow: count === 4 ? "1 / 4" : "1" }}
+                className="group/handle relative z-10 cursor-col-resize"
+              >
+                <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/10 transition-colors group-hover/handle:bg-accent/60 group-active/handle:bg-accent" />
+              </div>
+            )}
+            {draggable && count >= 3 && (
+              <div
+                onPointerDown={startRowDrag}
+                style={{ gridColumn: "1 / 4", gridRow: "2" }}
+                className="group/handle relative z-10 cursor-row-resize"
+              >
+                <div className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-white/10 transition-colors group-hover/handle:bg-accent/60 group-active/handle:bg-accent" />
+              </div>
+            )}
           </main>
 
           <GitPanel />

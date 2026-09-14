@@ -466,6 +466,40 @@ describe("pane titles and colors", () => {
   });
 });
 
+describe("background and foreground", () => {
+  it("setPaneBackgrounded sends a pane to the background", () => {
+    store().setPaneBackgrounded("p1", true, "w1");
+    expect(w1().panes[0].backgrounded).toBe(true);
+  });
+
+  it("bringing a pane back to the foreground clears the flag", () => {
+    store().setPaneBackgrounded("p1", true, "w1");
+    store().setPaneBackgrounded("p1", false, "w1");
+    expect(w1().panes[0].backgrounded).toBe(false);
+  });
+
+  it("bringing a pane forward also focuses it", () => {
+    store().setSessionId("p1", "sess-1", "fish", "/repo", "w1");
+    store().setPaneBackgrounded("p1", true, "w1");
+    store().setActiveTerminal("some-other-session", "w1");
+    store().setPaneBackgrounded("p1", false, "w1");
+    expect(w1().activeTerminalId).toBe("sess-1");
+  });
+
+  it("sending a pane to the background does not change the active terminal", () => {
+    store().setSessionId("p1", "sess-1", "fish", "/repo", "w1");
+    store().setActiveTerminal("sess-1", "w1");
+    store().setPaneBackgrounded("p1", true, "w1");
+    expect(w1().activeTerminalId).toBe("sess-1");
+  });
+
+  it("other panes are unaffected", () => {
+    store().addPane("w1");
+    store().setPaneBackgrounded("p1", true, "w1");
+    expect(w1().panes[1].backgrounded).toBeUndefined();
+  });
+});
+
 describe("workspace templates", () => {
   it("saves the current workspace layout as a template", () => {
     store().addProject("/repo/a", "w1");

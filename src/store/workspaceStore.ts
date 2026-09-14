@@ -50,6 +50,9 @@ export interface Pane {
    * unscoped and only shows when no project is active — new panes are
    * stamped with whichever project is active at creation time. */
   projectId?: string;
+  /** Sent to the background by the user: still mounted (PTY stays alive)
+   * but excluded from the grid until brought back to the foreground. */
+  backgrounded?: boolean;
 }
 
 export interface Workspace {
@@ -120,6 +123,7 @@ interface WorkspaceState {
   renamePane: (paneId: string, title: string | undefined, workspaceId?: string) => void;
   setPaneColor: (paneId: string, color: string | undefined, workspaceId?: string) => void;
   setPaneRunning: (paneId: string, running: boolean, workspaceId?: string) => void;
+  setPaneBackgrounded: (paneId: string, backgrounded: boolean, workspaceId?: string) => void;
 
   saveWorkspaceTemplate: (workspaceId: string, name: string) => void;
   createWorkspaceFromTemplate: (templateId: string) => void;
@@ -470,6 +474,29 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 }
                 : w
             ),
+          };
+        });
+      },
+
+      setPaneBackgrounded: (paneId, backgrounded, workspaceId) => {
+        set((state) => {
+          const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+          if (!id) return state;
+          return {
+            workspaces: state.workspaces.map((w) => {
+              if (w.id !== id) return w;
+              const pane = w.panes.find((p) => p.id === paneId);
+              return {
+                ...w,
+                panes: w.panes.map((p) =>
+                  p.id === paneId ? { ...p, backgrounded } : p
+                ),
+                // Bringing a pane forward also focuses it, matching the
+                // expectation that restoring something puts it in view.
+                activeTerminalId:
+                  !backgrounded && pane?.sessionId ? pane.sessionId : w.activeTerminalId,
+              };
+            }),
           };
         });
       },
