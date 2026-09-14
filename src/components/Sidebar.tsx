@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { useWorkspaceStore, Workspace } from "../store/workspaceStore";
 import { ProjectPanel } from "./ProjectPanel";
-import { Plus, X, Layers, Pencil, Cpu } from "lucide-react";
+import {
+  Plus,
+  X,
+  Layers,
+  Pencil,
+  Cpu,
+  Bookmark,
+  LayoutTemplate,
+  Rocket,
+} from "lucide-react";
 
 export function Sidebar() {
   const store = useWorkspaceStore();
@@ -22,13 +31,18 @@ export function Sidebar() {
     setEditingId(null);
   };
 
+  const saveAsTemplate = (w: Workspace) => {
+    const name = window.prompt("Save workspace as template named:", w.name);
+    if (name && name.trim()) store.saveWorkspaceTemplate(w.id, name.trim());
+  };
+
   return (
     <div className="w-72 h-full flex flex-col overflow-hidden bg-slate-950/60 backdrop-blur-xl border-r border-white/10 animate-fade-in">
       <div className="h-14 shrink-0 flex items-center gap-2.5 px-5 border-b border-white/10">
-        <div className="p-1.5 rounded-lg bg-gradient-to-br from-cyan-500 to-violet-600 shadow-md shadow-cyan-500/20 ring-1 ring-white/20">
+        <div className="p-1.5 rounded-lg bg-gradient-to-br from-accent to-accent-2 shadow-md shadow-accent/20 ring-1 ring-white/20">
           <Cpu size={14} className="text-white" />
         </div>
-        <span className="text-sm font-bold tracking-tight bg-gradient-to-r from-cyan-300 to-violet-300 bg-clip-text text-transparent">
+        <span className="text-sm font-bold tracking-tight bg-gradient-to-r from-accent to-accent-2 bg-clip-text text-transparent">
           Agent
         </span>
       </div>
@@ -40,7 +54,7 @@ export function Sidebar() {
           </span>
           <button
             onClick={() => store.addWorkspace()}
-            className="p-1.5 rounded-md text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 transition-all"
+            className="p-1.5 rounded-md text-slate-400 hover:text-accent hover:bg-slate-800/60 transition-all"
             title="New workspace"
           >
             <Plus size={14} />
@@ -55,7 +69,7 @@ export function Sidebar() {
                 onClick={() => store.setActiveWorkspace(w.id)}
                 className={`group flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-all duration-200 border ${
                   isActive
-                    ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-100"
+                    ? "bg-accent/10 border-accent/30 text-accent"
                     : "bg-slate-900/40 border-transparent text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
                 }`}
               >
@@ -71,7 +85,7 @@ export function Sidebar() {
                       if (e.key === "Escape") setEditingId(null);
                     }}
                     onBlur={commitRename}
-                    className="flex-1 min-w-0 bg-slate-900/80 border border-cyan-500/40 rounded px-1.5 py-0.5 text-sm text-cyan-100 outline-none"
+                    className="flex-1 min-w-0 bg-slate-900/80 border border-accent/40 rounded px-1.5 py-0.5 text-sm text-accent outline-none"
                   />
                 ) : (
                   <span
@@ -83,7 +97,7 @@ export function Sidebar() {
                   >
                     <Layers
                       size={14}
-                      className={isActive ? "text-cyan-400" : "text-slate-500"}
+                      className={isActive ? "text-accent" : "text-slate-500"}
                     />
                     <span className="truncate">{w.name}</span>
                   </span>
@@ -101,10 +115,20 @@ export function Sidebar() {
                         e.stopPropagation();
                         startRename(w);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-500 hover:text-cyan-300 hover:bg-slate-800/60 transition-all"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-500 hover:text-accent hover:bg-slate-800/60 transition-all"
                       title="Rename workspace"
                     >
                       <Pencil size={12} />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        saveAsTemplate(w);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-500 hover:text-accent-2 hover:bg-slate-800/60 transition-all"
+                      title="Save as template"
+                    >
+                      <Bookmark size={12} />
                     </button>
                     {workspaces.length > 1 && (
                       <button
@@ -124,6 +148,41 @@ export function Sidebar() {
             );
           })}
         </div>
+
+        {store.templates.length > 0 && (
+          <div className="mt-4 pt-3 border-t border-white/5">
+            <div className="flex items-center gap-1.5 mb-2 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
+              <LayoutTemplate size={11} />
+              Templates
+            </div>
+            <div className="space-y-1">
+              {store.templates.map((t) => (
+                <div
+                  key={t.id}
+                  className="group flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-slate-400 bg-slate-900/40 hover:bg-slate-800/60 transition-colors"
+                >
+                  <span className="truncate">{t.name}</span>
+                  <span className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => store.createWorkspaceFromTemplate(t.id)}
+                      className="p-1 rounded text-slate-500 hover:text-accent hover:bg-slate-800/60 transition-all"
+                      title="Launch workspace from template"
+                    >
+                      <Rocket size={12} />
+                    </button>
+                    <button
+                      onClick={() => store.removeWorkspaceTemplate(t.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-500 hover:text-rose-300 hover:bg-rose-500/20 transition-all"
+                      title="Delete template"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <ProjectPanel />

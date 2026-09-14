@@ -22,6 +22,8 @@ function reset() {
     workspaces: [ws()],
     activeWorkspaceId: null,
     settings: defaultSettings,
+    templates: [],
+    closedPanes: [],
   });
 }
 
@@ -262,18 +264,18 @@ describe("settings", () => {
     expect(store().settings.cursorStyle).toBe("bar");
   });
 
-  it("persists settings to localStorage, not workspaces", () => {
+  it("persists settings and workspace layout to localStorage", () => {
     store().updateSettings({ fontSize: 16 });
+    store().addProject("/repo/a", "w1");
     const raw = localStorage.getItem("ai-terminal-agent-settings");
     expect(raw).toBeTruthy();
     const saved = JSON.parse(raw!);
     expect(saved.state.settings.fontSize).toBe(16);
-    expect(saved.state.workspaces).toBeUndefined();
+    expect(saved.state.workspaces[0].projects[0].root).toBe("/repo/a");
   });
 
   it("updateSettings supports the AI fields", () => {
-    store().updateSettings({ openaiApiKey: "sk-x", commitModel: "gpt-4o" });
-    expect(store().settings.openaiApiKey).toBe("sk-x");
+    store().updateSettings({ commitModel: "gpt-4o" });
     expect(store().settings.commitModel).toBe("gpt-4o");
   });
 
@@ -292,5 +294,151 @@ describe("settings", () => {
     expect(s.settings.cursorStyle).toBe("bar");
     expect(s.settings.diffViewer).toBe("auto");
     expect(s.workspaces).toHaveLength(1);
+  });
+});
+
+describe("session persistence", () => {
+  it("restores workspace layout, stripping live session fields", async () => {
+    localStorage.setItem(
+      "ai-terminal-agent-settings",
+      JSON.stringify({
+        state: {
+          settings: defaultSettings,
+          activeWorkspaceId: "w1",
+          workspaces: [
+            ws({
+              projects: [{ id: "pr1", root: "/repo/a" }],
+              activeProjectId: "pr1",
+              panes: [
+                { id: "p1", type: "terminal", sessionId: "sess-1", cwd: "/repo/a" },
+                { id: "p2", type: "terminal", overlay: true, startupCommand: "lazygit" },
+              ],
+              activeTerminalId: "sess-1",
+            }),
+          ],
+        },
+        version: 0,
+      }),
+    );
+    vi.resetModules();
+    const mod = await import("./workspaceStore");
+    const s = mod.useWorkspaceStore.getState();
+    expect(s.workspaces).toHaveLength(1);
+    expect(s.workspaces[0].activeTerminalId).toBeNull();
+    expect(s.workspaces[0].panes).toHaveLength(1);
+    expect(s.workspaces[0].panes[0].sessionId).toBeUndefined();
+    expect(s.workspaces[0].panes[0].cwd).toBe("/repo/a");
+  });
+
+  it("does not restore workspaces when restoreSession is disabled", async () => {
+    localStorage.setItem(
+      "ai-terminal-agent-settings",
+      JSON.stringify({
+        state: {
+          settings: { ...defaultSettings, restoreSession: false },
+          workspaces: [ws({ name: "Persisted" })],
+        },
+        version: 0,
+      }),
+    );
+    vi.resetModules();
+    const mod = await import("./workspaceStore");
+    const s = mod.useWorkspaceStore.getState();
+    expect(s.workspaces).toHaveLength(1);
+    expect(s.workspaces[0].name).not.toBe("Persisted");
+  });
+});
+
+describe("reopenLastPane", () => {
+  it("restores the most recently closed pane with its cwd", () => {
+    store().addPane("w1", undefined);
+    const p2 = w1().panes[1];
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? { ...w, panes: w.panes.map((p) => (p.id === p2.id ? { ...p, cwd: "/repo/x" } : p)) }
+          : w,
+      ),
+    }));
+    store().removePane(p2.id);
+    expect(w1().panes).toHaveLength(1);
+    store().reopenLastPane();
+    expect(w1().panes).toHaveLength(2);
+    expect(w1().panes[1].cwd).toBe("/repo/x");
+    expect(w1().panes[1].id).not.toBe(p2.id);
+  });
+
+  it("does not reopen overlay panes", () => {
+    store().addOverlayPane("lazygit", "lazygit", "w1");
+    const overlay = w1().panes.find((p) => p.overlay)!;
+    store().removePane(overlay.id);
+    store().reopenLastPane();
+    expect(w1().panes.some((p) => p.overlay)).toBe(false);
+  });
+
+  it("is a no-op when nothing was closed", () => {
+    store().reopenLastPane();
+    expect(w1().panes).toHaveLength(1);
+  });
+});
+
+describe("pane titles and colors", () => {
+  it("renamePane sets a title", () => {
+    store().renamePane("p1", "claude", "w1");
+    expect(w1().panes[0].title).toBe("claude");
+  });
+
+  it("renamePane can clear a title", () => {
+    store().renamePane("p1", "claude", "w1");
+    store().renamePane("p1", undefined, "w1");
+    expect(w1().panes[0].title).toBeUndefined();
+  });
+
+  it("setPaneColor sets and clears a color", () => {
+    store().setPaneColor("p1", "#22d3ee", "w1");
+    expect(w1().panes[0].color).toBe("#22d3ee");
+    store().setPaneColor("p1", undefined, "w1");
+    expect(w1().panes[0].color).toBeUndefined();
+  });
+});
+
+describe("workspace templates", () => {
+  it("saves the current workspace layout as a template", () => {
+    store().addProject("/repo/a", "w1");
+    store().addPane("w1", "npm run dev");
+    store().saveWorkspaceTemplate("w1", "My Stack");
+    expect(store().templates).toHaveLength(1);
+    expect(store().templates[0].name).toBe("My Stack");
+    expect(store().templates[0].projects).toEqual([{ root: "/repo/a" }]);
+    expect(store().templates[0].panes.map((p) => p.startupCommand)).toContain(
+      "npm run dev",
+    );
+  });
+
+  it("excludes overlay panes from a saved template", () => {
+    store().addOverlayPane("lazygit", "lazygit", "w1");
+    store().saveWorkspaceTemplate("w1", "T");
+    expect(store().templates[0].panes).toHaveLength(1);
+  });
+
+  it("creates a new workspace from a template", () => {
+    store().addProject("/repo/a", "w1");
+    store().addPane("w1", "npm run dev");
+    store().saveWorkspaceTemplate("w1", "My Stack");
+    const templateId = store().templates[0].id;
+    store().createWorkspaceFromTemplate(templateId);
+    expect(store().workspaces).toHaveLength(2);
+    const created = store().workspaces[1];
+    expect(created.name).toBe("My Stack");
+    expect(created.projects.map((p) => p.root)).toEqual(["/repo/a"]);
+    expect(created.panes.some((p) => p.startupCommand === "npm run dev")).toBe(true);
+    expect(store().activeWorkspaceId).toBe(created.id);
+  });
+
+  it("removeWorkspaceTemplate deletes it", () => {
+    store().saveWorkspaceTemplate("w1", "T");
+    const id = store().templates[0].id;
+    store().removeWorkspaceTemplate(id);
+    expect(store().templates).toHaveLength(0);
   });
 });

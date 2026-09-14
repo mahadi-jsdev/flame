@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+/* Indirection so Tailwind keeps accent/accent-2 as live `var()` references
+   (via `@theme inline`) instead of pre-resolving opacity modifiers like
+   `border-accent/30` into a static hex at build time — that would make
+   runtime theme switching a no-op for every class using an opacity suffix. */
+:root {
+  --ui-accent: #22d3ee;
+  --ui-accent-2: #a78bfa;
+}
+
+@theme inline {
+  --color-accent: var(--ui-accent);
+  --color-accent-2: var(--ui-accent-2);
+}
+
 html,
 body,
 #root {
@@ -124,7 +138,7 @@ body,
 }
 
 :focus-visible {
-  outline: 2px solid rgba(34, 211, 238, 0.5);
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 50%, transparent);
   outline-offset: 1px;
   border-radius: 4px;
 }

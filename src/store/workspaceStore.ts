@@ -7,9 +7,10 @@ export interface AppSettings {
   cursorBlink: boolean;
   scrollback: number;
   diffViewer: "auto" | "delta" | "diff-so-fancy" | "plain";
-  openaiApiKey: string;
   commitModel: string;
   notifications: boolean;
+  restoreSession: boolean;
+  theme: string;
 }
 
 export const defaultSettings: AppSettings = {
@@ -18,9 +19,10 @@ export const defaultSettings: AppSettings = {
   cursorBlink: true,
   scrollback: 100000,
   diffViewer: "auto",
-  openaiApiKey: "",
   commitModel: "gpt-4o-mini",
   notifications: true,
+  restoreSession: true,
+  theme: "aurora",
 };
 
 export interface Project {
@@ -39,6 +41,7 @@ export interface Pane {
   startupCommand?: string;
   overlay?: boolean;
   title?: string;
+  color?: string;
 }
 
 export interface Workspace {
@@ -50,10 +53,29 @@ export interface Workspace {
   activeTerminalId: string | null;
 }
 
+export interface WorkspaceTemplate {
+  id: string;
+  name: string;
+  projects: { root: string }[];
+  panes: {
+    cwd?: string;
+    startupCommand?: string;
+    title?: string;
+    color?: string;
+  }[];
+}
+
+interface ClosedPane {
+  pane: Pane;
+  workspaceId: string;
+}
+
 interface WorkspaceState {
   workspaces: Workspace[];
   activeWorkspaceId: string | null;
   settings: AppSettings;
+  templates: WorkspaceTemplate[];
+  closedPanes: ClosedPane[];
   updateSettings: (patch: Partial<AppSettings>) => void;
 
   getActiveWorkspace: () => Workspace | undefined;
@@ -71,9 +93,16 @@ interface WorkspaceState {
   addOverlayPane: (command: string, title: string, workspaceId?: string) => void;
   swapPanes: (aId: string, bId: string, workspaceId?: string) => void;
   removePane: (paneId: string, workspaceId?: string) => void;
+  reopenLastPane: () => void;
   clearPaneStartupCommand: (paneId: string, workspaceId?: string) => void;
   setSessionId: (paneId: string, sessionId: string, shell?: string, cwd?: string, workspaceId?: string) => void;
   setActiveTerminal: (sessionId: string, workspaceId?: string) => void;
+  renamePane: (paneId: string, title: string | undefined, workspaceId?: string) => void;
+  setPaneColor: (paneId: string, color: string | undefined, workspaceId?: string) => void;
+
+  saveWorkspaceTemplate: (workspaceId: string, name: string) => void;
+  createWorkspaceFromTemplate: (templateId: string) => void;
+  removeWorkspaceTemplate: (id: string) => void;
 
   activeCwd: () => string | undefined;
 }
@@ -105,6 +134,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     (set, get) => ({
       workspaces: [createWorkspace(defaultWorkspaceName(1))],
       activeWorkspaceId: null,
+      templates: [],
+      closedPanes: [],
 
       settings: defaultSettings,
       updateSettings: (patch) =>
@@ -280,18 +311,43 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set((state) => {
           const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
           if (!id) return state;
+          let closedPanes = state.closedPanes;
+          const workspaces = state.workspaces.map((w) => {
+            if (w.id !== id) return w;
+            const removed = w.panes.find((p) => p.id === paneId);
+            if (removed && !removed.overlay) {
+              closedPanes = [{ pane: removed, workspaceId: id }, ...closedPanes].slice(0, 5);
+            }
+            const remaining = w.panes.filter((p) => p.id !== paneId);
+            const panes = remaining.length > 0 ? remaining : [{ id: newId(), type: "terminal" as const }];
+            const activeTerminalId =
+              removed?.sessionId && removed.sessionId === w.activeTerminalId
+                ? null
+                : w.activeTerminalId;
+            return { ...w, panes, activeTerminalId };
+          });
+          return { workspaces, closedPanes };
+        });
+      },
+
+      reopenLastPane: () => {
+        set((state) => {
+          if (state.closedPanes.length === 0) return state;
+          const [{ pane, workspaceId }, ...rest] = state.closedPanes;
+          const id = state.workspaces.some((w) => w.id === workspaceId)
+            ? workspaceId
+            : state.activeWorkspaceId ?? state.workspaces[0]?.id;
+          if (!id) return { closedPanes: rest };
+          const newPane: Pane = {
+            ...pane,
+            id: newId(),
+            sessionId: undefined,
+          };
           return {
-            workspaces: state.workspaces.map((w) => {
-              if (w.id !== id) return w;
-              const removed = w.panes.find((p) => p.id === paneId);
-              const remaining = w.panes.filter((p) => p.id !== paneId);
-              const panes = remaining.length > 0 ? remaining : [{ id: newId(), type: "terminal" as const }];
-              const activeTerminalId =
-                removed?.sessionId && removed.sessionId === w.activeTerminalId
-                  ? null
-                  : w.activeTerminalId;
-              return { ...w, panes, activeTerminalId };
-            }),
+            closedPanes: rest,
+            workspaces: state.workspaces.map((w) =>
+              w.id === id ? { ...w, panes: [...w.panes, newPane] } : w
+            ),
           };
         });
       },
@@ -327,6 +383,101 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         });
       },
 
+      renamePane: (paneId, title, workspaceId) => {
+        set((state) => {
+          const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+          if (!id) return state;
+          return {
+            workspaces: state.workspaces.map((w) =>
+              w.id === id
+                ? {
+                  ...w,
+                  panes: w.panes.map((p) =>
+                    p.id === paneId ? { ...p, title } : p
+                  ),
+                }
+                : w
+            ),
+          };
+        });
+      },
+
+      setPaneColor: (paneId, color, workspaceId) => {
+        set((state) => {
+          const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+          if (!id) return state;
+          return {
+            workspaces: state.workspaces.map((w) =>
+              w.id === id
+                ? {
+                  ...w,
+                  panes: w.panes.map((p) =>
+                    p.id === paneId ? { ...p, color } : p
+                  ),
+                }
+                : w
+            ),
+          };
+        });
+      },
+
+      saveWorkspaceTemplate: (workspaceId, name) => {
+        set((state) => {
+          const w = state.workspaces.find((w) => w.id === workspaceId);
+          if (!w) return state;
+          const template: WorkspaceTemplate = {
+            id: newId(),
+            name,
+            projects: w.projects.map((p) => ({ root: p.root })),
+            panes: w.panes
+              .filter((p) => !p.overlay)
+              .map((p) => ({
+                cwd: p.cwd,
+                startupCommand: p.startupCommand,
+                title: p.title,
+                color: p.color,
+              })),
+          };
+          return { templates: [...state.templates, template] };
+        });
+      },
+
+      createWorkspaceFromTemplate: (templateId) => {
+        set((state) => {
+          const template = state.templates.find((t) => t.id === templateId);
+          if (!template) return state;
+          const projects = template.projects.map((p) => ({ id: newId(), root: p.root }));
+          const panes: Pane[] =
+            template.panes.length > 0
+              ? template.panes.map((p) => ({
+                id: newId(),
+                type: "terminal" as const,
+                cwd: p.cwd,
+                startupCommand: p.startupCommand,
+                title: p.title,
+                color: p.color,
+              }))
+              : [{ id: newId(), type: "terminal" as const }];
+          const nextIndex = state.workspaces.length + 1;
+          const workspace: Workspace = {
+            id: newId(),
+            name: template.name || defaultWorkspaceName(nextIndex),
+            projects,
+            activeProjectId: projects[0]?.id ?? null,
+            panes,
+            activeTerminalId: null,
+          };
+          return {
+            workspaces: [...state.workspaces, workspace],
+            activeWorkspaceId: workspace.id,
+          };
+        });
+      },
+
+      removeWorkspaceTemplate: (id) => {
+        set((state) => ({ templates: state.templates.filter((t) => t.id !== id) }));
+      },
+
       activeCwd: () => {
         const workspace = get().getActiveWorkspace();
         if (!workspace) return undefined;
@@ -336,13 +487,38 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     }),
     {
       name: "ai-terminal-agent-settings",
-      partialize: (s) => ({ settings: s.settings }),
+      partialize: (s) => ({
+        settings: s.settings,
+        workspaces: s.workspaces,
+        activeWorkspaceId: s.activeWorkspaceId,
+        templates: s.templates,
+      }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<WorkspaceState>;
+        const settings = { ...defaultSettings, ...p.settings };
+        const templates = p.templates ?? [];
+
+        if (!settings.restoreSession || !p.workspaces || p.workspaces.length === 0) {
+          return { ...current, settings, templates };
+        }
+
+        const workspaces = p.workspaces.map((w) => {
+          const panes = w.panes
+            .filter((pane) => !pane.overlay)
+            .map((pane) => ({ ...pane, sessionId: undefined }));
+          return {
+            ...w,
+            activeTerminalId: null,
+            panes: panes.length > 0 ? panes : [{ id: newId(), type: "terminal" as const }],
+          };
+        });
+
         return {
           ...current,
-          ...p,
-          settings: { ...defaultSettings, ...p.settings },
+          settings,
+          templates,
+          workspaces,
+          activeWorkspaceId: p.activeWorkspaceId ?? null,
         };
       },
     },

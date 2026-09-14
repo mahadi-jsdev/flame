@@ -8,6 +8,7 @@ import {
   gitRoot,
   gitStatus,
   GitStatusEntry,
+  pickDirectory,
 } from "../lib/tauri";
 import {
   buildDiffCmd,
@@ -114,10 +115,8 @@ export function ProjectPanel() {
   }, [project?.id, project?.root]);
 
   const handleAddProject = async () => {
-    const { open } = await import("@tauri-apps/plugin-dialog");
-    const path = await open({ directory: true });
-    if (typeof path !== "string") return;
-    store.addProject(path);
+    const path = await pickDirectory();
+    if (path) store.addProject(path);
   };
 
   const toggleBranches = async () => {
@@ -146,19 +145,11 @@ export function ProjectPanel() {
 
   const autoCommit = async () => {
     if (!project) return;
-    const { openaiApiKey, commitModel } = useWorkspaceStore.getState().settings;
-    if (!openaiApiKey.trim()) {
-      setError("Set an OpenAI API key in Settings to use AI auto-commit");
-      return;
-    }
+    const { commitModel } = useWorkspaceStore.getState().settings;
     setAiCommitting(true);
     setError(null);
     try {
-      const msg = await gitAutoCommit(
-        repoRoot ?? project.root,
-        openaiApiKey,
-        commitModel,
-      );
+      const msg = await gitAutoCommit(repoRoot ?? project.root, commitModel);
       setLastCommit(msg);
       await refreshGit();
     } catch (e) {
@@ -193,7 +184,7 @@ export function ProjectPanel() {
           </span>
           <button
             onClick={handleAddProject}
-            className="p-1 rounded-md text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 transition-all"
+            className="p-1 rounded-md text-slate-400 hover:text-accent hover:bg-slate-800/60 transition-all"
             title="Add project"
           >
             <Plus size={13} />
@@ -206,7 +197,7 @@ export function ProjectPanel() {
               <p className="text-xs text-slate-500 mb-2">No projects yet</p>
               <button
                 onClick={handleAddProject}
-                className="text-xs px-2.5 py-1.5 rounded-md bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/20 transition-colors"
+                className="text-xs px-2.5 py-1.5 rounded-md bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 transition-colors"
               >
                 Add Project
               </button>
@@ -220,14 +211,14 @@ export function ProjectPanel() {
                   onClick={() => store.setActiveProject(p.id)}
                   className={`group relative flex items-center justify-between pl-3.5 pr-2.5 py-2.5 rounded-lg text-sm cursor-pointer transition-all duration-200 border ${
                     isActive
-                      ? "bg-cyan-500/10 border-cyan-500/30 text-cyan-100"
+                      ? "bg-accent/10 border-accent/30 text-accent"
                       : "bg-slate-900/40 border-transparent text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
                   }`}
                 >
                   <span className="flex items-center gap-2.5 truncate">
                     <Folder
                       size={14}
-                      className={isActive ? "text-cyan-400" : "text-slate-500"}
+                      className={isActive ? "text-accent" : "text-slate-500"}
                     />
                     <span className="truncate font-medium">
                       {projectName(p.root)}
@@ -246,7 +237,7 @@ export function ProjectPanel() {
                     </button>
                   )}
                   {isActive && (
-                    <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-cyan-400" />
+                    <span className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-accent" />
                   )}
                 </div>
               );
@@ -261,10 +252,10 @@ export function ProjectPanel() {
             <div className="flex items-center justify-between">
               <button
                 onClick={toggleBranches}
-                className="flex items-center gap-2 min-w-0 text-sm text-slate-300 hover:text-cyan-300 transition-colors"
+                className="flex items-center gap-2 min-w-0 text-sm text-slate-300 hover:text-accent transition-colors"
                 title="Switch branch"
               >
-                <GitBranch size={14} className="shrink-0 text-violet-400" />
+                <GitBranch size={14} className="shrink-0 text-accent-2" />
                 <span className="font-mono truncate">
                   {branch ?? "no branch"}
                 </span>
@@ -279,13 +270,13 @@ export function ProjectPanel() {
                 <button
                   onClick={autoCommit}
                   disabled={aiCommitting}
-                  className="p-1.5 rounded-md text-slate-400 hover:text-violet-300 hover:bg-slate-800/60 transition-all disabled:opacity-50"
+                  className="p-1.5 rounded-md text-slate-400 hover:text-accent-2 hover:bg-slate-800/60 transition-all disabled:opacity-50"
                   title="AI auto-commit (stages all changes)"
                 >
                   {aiCommitting ? (
                     <Loader2
                       size={13}
-                      className="animate-spin text-violet-300"
+                      className="animate-spin text-accent-2"
                     />
                   ) : (
                     <Sparkles size={13} />
@@ -293,7 +284,7 @@ export function ProjectPanel() {
                 </button>
                 <button
                   onClick={() => openLazygit(repoRoot ?? project.root)}
-                  className="p-1.5 rounded-md text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 transition-all"
+                  className="p-1.5 rounded-md text-slate-400 hover:text-accent hover:bg-slate-800/60 transition-all"
                   title="Open lazygit in a new terminal"
                 >
                   <SquareTerminal size={13} />
@@ -301,7 +292,7 @@ export function ProjectPanel() {
                 <button
                   onClick={refreshGit}
                   disabled={loading}
-                  className="p-1.5 rounded-md text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 transition-all disabled:opacity-50"
+                  className="p-1.5 rounded-md text-slate-400 hover:text-accent hover:bg-slate-800/60 transition-all disabled:opacity-50"
                   title="Refresh git status"
                 >
                   <RefreshCw
@@ -325,14 +316,14 @@ export function ProjectPanel() {
                       onClick={() => switchBranch(b)}
                       className={`flex items-center gap-2 px-3 py-2 text-xs cursor-pointer transition-colors ${
                         b === branch
-                          ? "bg-cyan-500/10 text-cyan-300"
+                          ? "bg-accent/10 text-accent"
                           : "text-slate-300 hover:bg-slate-800/60"
                       }`}
                     >
                       <Check
                         size={12}
                         className={`shrink-0 ${
-                          b === branch ? "text-cyan-400" : "text-transparent"
+                          b === branch ? "text-accent" : "text-transparent"
                         }`}
                       />
                       <span className="truncate font-mono">{b}</span>
@@ -417,7 +408,7 @@ function DirTree({
               ) : (
                 <ChevronDown size={12} className="shrink-0 text-slate-500" />
               )}
-              <Folder size={13} className="shrink-0 text-violet-400" />
+              <Folder size={13} className="shrink-0 text-accent-2" />
               <span className="truncate">{d.name}</span>
             </div>
             {!isCollapsed && (
@@ -442,7 +433,7 @@ function DirTree({
           style={{ paddingLeft: `${depth * 14 + 21}px` }}
           title="Open git diff"
         >
-          <File size={13} className="shrink-0 text-cyan-400" />
+          <File size={13} className="shrink-0 text-accent" />
           <span className="text-xs text-slate-300 truncate flex-1 min-w-0">
             {f.entry.original_path ? (
               <>

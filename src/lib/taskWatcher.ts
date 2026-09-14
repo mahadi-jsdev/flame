@@ -4,9 +4,25 @@ const AGENT_CMD =
 export const BUSY_MIN_MS = 10_000;
 export const QUIET_MS = 8_000;
 
+export const AGENT_COLORS: Record<string, string> = {
+  claude: "#22d3ee",
+  codex: "#34d399",
+  devin: "#f87171",
+  gemini: "#60a5fa",
+  aider: "#facc15",
+  "cursor-agent": "#c084fc",
+  opencode: "#fb923c",
+  copilot: "#94a3b8",
+};
+
 export function agentName(command: string): string | null {
   const m = command.match(AGENT_CMD);
   return m ? m[1].toLowerCase() : null;
+}
+
+export function agentColor(command: string): string | null {
+  const name = agentName(command);
+  return name ? AGENT_COLORS[name] ?? null : null;
 }
 
 export function shouldNotify(
@@ -30,6 +46,7 @@ export class TaskWatcher {
   private busyMinMs: number;
   private quietMs: number;
   private onDone: (command: string) => void;
+  private onCommand?: (command: string) => void;
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastDataAt = 0;
   private busyStart = 0;
@@ -38,11 +55,13 @@ export class TaskWatcher {
 
   constructor(opts: {
     onDone: (command: string) => void;
+    onCommand?: (command: string) => void;
     busyMinMs?: number;
     quietMs?: number;
     intervalMs?: number;
   }) {
     this.onDone = opts.onDone;
+    this.onCommand = opts.onCommand;
     this.busyMinMs = opts.busyMinMs ?? BUSY_MIN_MS;
     this.quietMs = opts.quietMs ?? QUIET_MS;
     this.intervalMs = opts.intervalMs ?? 2000;
@@ -61,7 +80,10 @@ export class TaskWatcher {
     for (const ch of data) {
       if (ch === "\r") {
         const cmd = this.inputBuf.trim();
-        if (cmd) this.lastCommand = cmd;
+        if (cmd) {
+          this.lastCommand = cmd;
+          this.onCommand?.(cmd);
+        }
         this.inputBuf = "";
       } else if (ch === "\x7f") {
         this.inputBuf = this.inputBuf.slice(0, -1);

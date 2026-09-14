@@ -31,8 +31,26 @@ export function gitRoot(path: string) {
   return invoke<string>("git_root_cmd", { path });
 }
 
-export function gitAutoCommit(path: string, apiKey: string, model?: string) {
-  return invoke<string>("git_auto_commit_cmd", { path, apiKey, model });
+export function gitAutoCommit(path: string, model?: string) {
+  return invoke<string>("git_auto_commit_cmd", { path, model });
+}
+
+export function hasApiKey() {
+  return invoke<boolean>("has_api_key_cmd");
+}
+
+export function saveApiKey(key: string) {
+  return invoke<void>("save_api_key_cmd", { key });
+}
+
+export function deleteApiKey() {
+  return invoke<void>("delete_api_key_cmd");
+}
+
+export async function pickDirectory(): Promise<string | null> {
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  const path = await open({ directory: true });
+  return typeof path === "string" ? path : null;
 }
 
 export function spawnPty(shell?: string, rows = 24, cols = 80, cwd?: string) {

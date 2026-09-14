@@ -1,6 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useWorkspaceStore, AppSettings } from "../store/workspaceStore";
-import { Settings2, X } from "lucide-react";
+import { deleteApiKey, hasApiKey, saveApiKey } from "../lib/tauri";
+import { THEMES } from "../lib/themes";
+import { Check, Loader2, Settings2, Trash2, X } from "lucide-react";
 
 function Row({
   label,
@@ -41,7 +43,7 @@ function Segmented<T extends string | number>({
           onClick={() => onChange(o.value)}
           className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
             o.value === value
-              ? "bg-cyan-500/15 text-cyan-100 shadow-sm"
+              ? "bg-accent/15 text-accent shadow-sm"
               : "text-slate-400 hover:text-slate-200"
           }`}
         >
@@ -56,6 +58,17 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const settings = useWorkspaceStore((s) => s.settings);
   const update = useWorkspaceStore((s) => s.updateSettings);
 
+  const [keyConfigured, setKeyConfigured] = useState<boolean | null>(null);
+  const [keyDraft, setKeyDraft] = useState("");
+  const [editingKey, setEditingKey] = useState(false);
+  const [savingKey, setSavingKey] = useState(false);
+
+  useEffect(() => {
+    hasApiKey()
+      .then(setKeyConfigured)
+      .catch(() => setKeyConfigured(false));
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -64,18 +77,41 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const saveKey = async () => {
+    if (!keyDraft.trim()) return;
+    setSavingKey(true);
+    try {
+      await saveApiKey(keyDraft.trim());
+      setKeyConfigured(true);
+      setEditingKey(false);
+      setKeyDraft("");
+    } finally {
+      setSavingKey(false);
+    }
+  };
+
+  const removeKey = async () => {
+    setSavingKey(true);
+    try {
+      await deleteApiKey();
+      setKeyConfigured(false);
+    } finally {
+      setSavingKey(false);
+    }
+  };
+
   return (
     <div
       className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="w-[340px] max-h-[80%] flex flex-col rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/60 ring-1 ring-cyan-500/10 animate-slide-up overflow-hidden"
+        className="w-[440px] max-h-[80%] flex flex-col rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/60 ring-1 ring-accent/10 animate-slide-up overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="h-11 shrink-0 flex items-center justify-between px-4 border-b border-white/10">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
-            <Settings2 size={13} className="text-cyan-400" />
+            <Settings2 size={13} className="text-accent" />
             Settings
           </div>
           <button
@@ -97,7 +133,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 step={1}
                 value={settings.fontSize}
                 onChange={(e) => update({ fontSize: Number(e.target.value) })}
-                className="w-24 accent-cyan-400"
+                className="w-24 accent-accent"
               />
               <span className="w-6 text-right text-[11px] font-mono text-slate-300">
                 {settings.fontSize}
@@ -121,7 +157,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <button
               onClick={() => update({ cursorBlink: !settings.cursorBlink })}
               className={`relative w-9 h-5 rounded-full transition-colors ${
-                settings.cursorBlink ? "bg-cyan-500/40" : "bg-slate-700"
+                settings.cursorBlink ? "bg-accent/40" : "bg-slate-700"
               }`}
               title="Toggle cursor blink"
             >
@@ -163,7 +199,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <button
               onClick={() => update({ notifications: !settings.notifications })}
               className={`relative w-9 h-5 rounded-full transition-colors ${
-                settings.notifications ? "bg-cyan-500/40" : "bg-slate-700"
+                settings.notifications ? "bg-accent/40" : "bg-slate-700"
               }`}
               title="Toggle notifications"
             >
@@ -175,16 +211,84 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             </button>
           </Row>
 
-          <Row label="OpenAI API key" hint="Used for AI auto-commit">
-            <input
-              type="password"
-              value={settings.openaiApiKey}
-              onChange={(e) => update({ openaiApiKey: e.target.value })}
-              placeholder="sk-..."
-              spellCheck={false}
-              autoComplete="off"
-              className="w-40 bg-slate-950/80 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-slate-200 placeholder:text-slate-600 outline-none focus:border-cyan-500/40"
+          <Row
+            label="Restore last session"
+            hint="Reopen workspaces & panes on launch"
+          >
+            <button
+              onClick={() => update({ restoreSession: !settings.restoreSession })}
+              className={`relative w-9 h-5 rounded-full transition-colors ${
+                settings.restoreSession ? "bg-accent/40" : "bg-slate-700"
+              }`}
+              title="Toggle session restore"
+            >
+              <span
+                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${
+                  settings.restoreSession ? "left-[18px]" : "left-0.5"
+                }`}
+              />
+            </button>
+          </Row>
+
+          <Row label="Terminal theme">
+            <Segmented<string>
+              value={settings.theme}
+              onChange={(v) => update({ theme: v })}
+              options={Object.entries(THEMES).map(([value, t]) => ({
+                value,
+                label: t.label,
+              }))}
             />
+          </Row>
+
+          <Row
+            label="OpenAI API key"
+            hint="Stored in your OS keychain, used for AI auto-commit"
+          >
+            <div className="flex flex-col items-end gap-1.5">
+              {keyConfigured === null ? (
+                <Loader2 size={13} className="animate-spin text-slate-500" />
+              ) : keyConfigured && !editingKey ? (
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 text-[11px] text-emerald-300">
+                    <Check size={12} /> Configured
+                  </span>
+                  <button
+                    onClick={() => setEditingKey(true)}
+                    className="text-[10px] px-2 py-1 rounded-md bg-slate-800/80 border border-white/10 text-slate-300 hover:text-accent hover:border-accent/30 transition-colors"
+                  >
+                    Change
+                  </button>
+                  <button
+                    onClick={removeKey}
+                    disabled={savingKey}
+                    className="p-1.5 rounded-md text-slate-500 hover:text-rose-300 hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                    title="Remove key from keychain"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="password"
+                    value={keyDraft}
+                    onChange={(e) => setKeyDraft(e.target.value)}
+                    placeholder="sk-..."
+                    spellCheck={false}
+                    autoComplete="off"
+                    className="w-44 bg-slate-950/80 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-slate-200 placeholder:text-slate-600 outline-none focus:border-accent/40"
+                  />
+                  <button
+                    onClick={saveKey}
+                    disabled={savingKey || !keyDraft.trim()}
+                    className="text-[10px] px-2 py-1.5 rounded-md bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 transition-colors disabled:opacity-50"
+                  >
+                    {savingKey ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              )}
+            </div>
           </Row>
 
           <Row label="Commit model" hint="OpenAI model for commit messages">
@@ -194,7 +298,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               onChange={(e) => update({ commitModel: e.target.value })}
               placeholder="gpt-4o-mini"
               spellCheck={false}
-              className="w-40 bg-slate-950/80 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-slate-200 placeholder:text-slate-600 outline-none focus:border-cyan-500/40"
+              className="w-48 bg-slate-950/80 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-slate-200 placeholder:text-slate-600 outline-none focus:border-accent/40"
             />
           </Row>
         </div>

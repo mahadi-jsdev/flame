@@ -21,6 +21,8 @@ function reset() {
     ],
     activeWorkspaceId: null,
     settings: defaultSettings,
+    templates: [],
+    closedPanes: [],
   });
 }
 
@@ -149,5 +151,64 @@ describe("Workspace shell", () => {
   it("footer shows PTY ready status", () => {
     render(<Workspace />);
     expect(screen.getByText(/PTY engine ready/)).toBeInTheDocument();
+  });
+
+  it("Ctrl+K opens the command palette", () => {
+    render(<Workspace />);
+    fireEvent.keyDown(window, { key: "k", ctrlKey: true });
+    expect(screen.getByPlaceholderText("Type a command…")).toBeInTheDocument();
+  });
+
+  it("Commands button opens the command palette", () => {
+    render(<Workspace />);
+    fireEvent.click(screen.getByTitle("Command palette"));
+    expect(screen.getByPlaceholderText("Type a command…")).toBeInTheDocument();
+  });
+
+  it("Ctrl+Shift+E reopens the last closed pane", () => {
+    store().addPane("w1");
+    render(<Workspace />);
+    const closes = screen.getAllByTitle("Close terminal");
+    fireEvent.click(closes[0]);
+    expect(store().workspaces[0].panes).toHaveLength(1);
+    fireEvent.keyDown(window, { key: "e", ctrlKey: true, shiftKey: true });
+    expect(store().workspaces[0].panes).toHaveLength(2);
+  });
+
+  it("double-click on a pane label renames it", () => {
+    render(<Workspace />);
+    fireEvent.doubleClick(screen.getByText("Terminal 1"));
+    const input = screen.getByDisplayValue("Terminal 1");
+    fireEvent.change(input, { target: { value: "Server" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(store().workspaces[0].panes[0].title).toBe("Server");
+    expect(screen.getByText("Server")).toBeInTheDocument();
+  });
+
+  it("clicking the color dot cycles the pane's tag color", () => {
+    render(<Workspace />);
+    const dot = screen.getByTitle("Click to cycle tag color");
+    fireEvent.click(dot);
+    expect(store().workspaces[0].panes[0].color).toBe("#22d3ee");
+  });
+
+  it("Ctrl+1 jumps to the first pane with a session", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? {
+              ...w,
+              panes: [
+                { id: "p1", type: "terminal" as const, sessionId: "s1" },
+                { id: "p2", type: "terminal" as const, sessionId: "s2" },
+              ],
+              activeTerminalId: "s2",
+            }
+          : w,
+      ),
+    }));
+    render(<Workspace />);
+    fireEvent.keyDown(window, { key: "1", ctrlKey: true });
+    expect(store().workspaces[0].activeTerminalId).toBe("s1");
   });
 });

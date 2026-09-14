@@ -4,6 +4,7 @@ mod pty;
 use git::{git_branch, git_branches, git_checkout, git_root, git_status, GitStatusEntry};
 
 mod openai;
+mod secrets;
 use pty::{PtyManager, PtySpawnResult};
 use tauri::Manager;
 
@@ -64,17 +65,29 @@ fn git_root_cmd(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn has_api_key_cmd() -> bool {
+    secrets::has_api_key()
+}
+
+#[tauri::command]
+fn save_api_key_cmd(key: String) -> Result<(), String> {
+    secrets::save_api_key(&key)
+}
+
+#[tauri::command]
+fn delete_api_key_cmd() -> Result<(), String> {
+    secrets::delete_api_key()
+}
+
+#[tauri::command]
 async fn git_auto_commit_cmd(
     path: String,
-    api_key: String,
     model: Option<String>,
 ) -> Result<String, String> {
-    let api_key = if api_key.trim().is_empty() {
-        std::env::var("OPENAI_API_KEY")
-            .map_err(|_| "no OpenAI API key configured".to_string())?
-    } else {
-        api_key
-    };
+    let api_key = secrets::get_api_key()
+        .filter(|k| !k.trim().is_empty())
+        .or_else(|| std::env::var("OPENAI_API_KEY").ok())
+        .ok_or_else(|| "no OpenAI API key configured — set one in Settings".to_string())?;
 
     git::git_stage_all(&path)?;
     let stat = git::git_diff_stat(&path)?;
@@ -108,7 +121,10 @@ pub fn run() {
             git_branches_cmd,
             git_checkout_cmd,
             git_root_cmd,
-            git_auto_commit_cmd
+            git_auto_commit_cmd,
+            has_api_key_cmd,
+            save_api_key_cmd,
+            delete_api_key_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

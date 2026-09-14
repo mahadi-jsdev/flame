@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Sidebar } from "./Sidebar";
 import {
@@ -28,6 +28,8 @@ function reset() {
     ],
     activeWorkspaceId: "w1",
     settings: defaultSettings,
+    templates: [],
+    closedPanes: [],
   });
 }
 
@@ -105,5 +107,35 @@ describe("Sidebar", () => {
     render(<Sidebar />);
     const chips = screen.getAllByTitle(/terminal/);
     expect(chips.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("save as template prompts for a name and stores it", () => {
+    vi.spyOn(window, "prompt").mockReturnValue("My Stack");
+    render(<Sidebar />);
+    fireEvent.click(screen.getAllByTitle("Save as template")[0]);
+    expect(store().templates).toHaveLength(1);
+    expect(store().templates[0].name).toBe("My Stack");
+  });
+
+  it("declining the prompt does not save a template", () => {
+    vi.spyOn(window, "prompt").mockReturnValue(null);
+    render(<Sidebar />);
+    fireEvent.click(screen.getAllByTitle("Save as template")[0]);
+    expect(store().templates).toHaveLength(0);
+  });
+
+  it("lists saved templates and launches a workspace from one", () => {
+    store().saveWorkspaceTemplate("w1", "My Stack");
+    render(<Sidebar />);
+    expect(screen.getByText("My Stack")).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle("Launch workspace from template"));
+    expect(store().workspaces).toHaveLength(3);
+  });
+
+  it("deletes a template", () => {
+    store().saveWorkspaceTemplate("w1", "My Stack");
+    render(<Sidebar />);
+    fireEvent.click(screen.getByTitle("Delete template"));
+    expect(store().templates).toHaveLength(0);
   });
 });

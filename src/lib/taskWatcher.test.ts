@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { agentName, shouldNotify, TaskWatcher } from "./taskWatcher";
+import { agentColor, agentName, shouldNotify, TaskWatcher } from "./taskWatcher";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -38,6 +38,16 @@ describe("agentName", () => {
       expect(agentName(cmd)).toBeNull();
     },
   );
+});
+
+describe("agentColor", () => {
+  it("returns a color for a known agent", () => {
+    expect(agentColor("claude -p 'fix bug'")).toBe("#22d3ee");
+  });
+
+  it("returns null when no agent is detected", () => {
+    expect(agentColor("ls -la")).toBeNull();
+  });
 });
 
 describe("shouldNotify", () => {
@@ -177,6 +187,26 @@ describe("TaskWatcher", () => {
     }
     vi.advanceTimersByTime(9000);
     expect(onDone).toHaveBeenCalledWith("real-cmd");
+    w.stop();
+  });
+
+  it("calls onCommand immediately when a line is entered", () => {
+    const onDone = vi.fn();
+    const onCommand = vi.fn();
+    const w = new TaskWatcher({ onDone, onCommand, intervalMs: 1000 });
+    w.start();
+    w.onInput("claude -p 'go'\r");
+    expect(onCommand).toHaveBeenCalledWith("claude -p 'go'");
+    w.stop();
+  });
+
+  it("does not call onCommand for an empty line", () => {
+    const onDone = vi.fn();
+    const onCommand = vi.fn();
+    const w = new TaskWatcher({ onDone, onCommand, intervalMs: 1000 });
+    w.start();
+    w.onInput("   \r");
+    expect(onCommand).not.toHaveBeenCalled();
     w.stop();
   });
 });

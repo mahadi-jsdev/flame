@@ -42,6 +42,8 @@ function reset() {
     ],
     activeWorkspaceId: "w1",
     settings: { ...defaultSettings },
+    templates: [],
+    closedPanes: [],
   });
 }
 
@@ -90,38 +92,31 @@ describe("ProjectPanel", () => {
     expect(overlay?.startupCommand).toContain("lazygit -p '/repo'");
   });
 
-  it("auto-commit without API key shows an error", async () => {
+  it("auto-commit without a configured key surfaces the backend error", async () => {
+    mocks.gitAutoCommit.mockRejectedValueOnce(
+      new Error("no OpenAI API key configured — set one in Settings"),
+    );
     render(<ProjectPanel />);
     fireEvent.click(
       await screen.findByTitle("AI auto-commit (stages all changes)"),
     );
     expect(
-      await screen.findByText(/OpenAI API key in Settings/),
+      await screen.findByText(/no OpenAI API key configured/),
     ).toBeInTheDocument();
-    expect(mocks.gitAutoCommit).not.toHaveBeenCalled();
+    expect(mocks.gitAutoCommit).toHaveBeenCalledWith("/repo", "gpt-4o-mini");
   });
 
-  it("auto-commit with API key commits and shows the message", async () => {
-    useWorkspaceStore.setState((s) => ({
-      settings: { ...s.settings, openaiApiKey: "sk-test" },
-    }));
+  it("auto-commit commits and shows the message", async () => {
     render(<ProjectPanel />);
     fireEvent.click(
       await screen.findByTitle("AI auto-commit (stages all changes)"),
     );
     expect(await screen.findByText("feat: add the thing")).toBeInTheDocument();
-    expect(mocks.gitAutoCommit).toHaveBeenCalledWith(
-      "/repo",
-      "sk-test",
-      "gpt-4o-mini",
-    );
+    expect(mocks.gitAutoCommit).toHaveBeenCalledWith("/repo", "gpt-4o-mini");
     expect(mocks.gitStatus).toHaveBeenCalled(); // refresh after commit
   });
 
   it("auto-commit failure surfaces the error", async () => {
-    useWorkspaceStore.setState((s) => ({
-      settings: { ...s.settings, openaiApiKey: "sk-test" },
-    }));
     mocks.gitAutoCommit.mockRejectedValueOnce(new Error("OpenAI HTTP 401"));
     render(<ProjectPanel />);
     fireEvent.click(
