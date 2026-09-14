@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useWorkspaceStore, Workspace } from "../store/workspaceStore";
+import { useWorkspaceStore, Pane, Workspace } from "../store/workspaceStore";
 import { ProjectPanel } from "./ProjectPanel";
 import {
   Plus,
@@ -12,11 +12,26 @@ import {
   PanelLeftClose,
 } from "lucide-react";
 
+function baseName(path: string) {
+  return (
+    path
+      .split(/[\/\\]/)
+      .filter(Boolean)
+      .pop() ?? path
+  );
+}
+
+interface AgentEntry {
+  pane: Pane;
+  workspaceId: string;
+  workspaceName: string;
+  projectLabel: string | null;
+}
+
 export function Sidebar() {
   const store = useWorkspaceStore();
   const workspaces = store.workspaces;
   const activeId = store.activeWorkspaceId ?? workspaces[0]?.id ?? null;
-  const activeWorkspace = workspaces.find((w) => w.id === activeId);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
@@ -37,8 +52,36 @@ export function Sidebar() {
     if (name && name.trim()) store.saveWorkspaceTemplate(w.id, name.trim());
   };
 
-  const taggedPanes =
-    activeWorkspace?.panes.filter((p) => !p.overlay && p.color && p.title) ?? [];
+  const agentEntries: AgentEntry[] = workspaces.flatMap((w) =>
+    w.panes
+      .filter((p) => !p.overlay && p.color && p.title)
+      .map((p) => {
+        const project = w.projects.find((pr) => pr.id === p.projectId);
+        return {
+          pane: p,
+          workspaceId: w.id,
+          workspaceName: w.name,
+          projectLabel: project ? baseName(project.root) : null,
+        };
+      }),
+  );
+  const sortedAgents = [...agentEntries].sort(
+    (a, b) => Number(!!b.pane.running) - Number(!!a.pane.running),
+  );
+  const runningAgentCount = agentEntries.filter((a) => a.pane.running).length;
+
+  const jumpToAgent = (entry: AgentEntry) => {
+    store.setActiveWorkspace(entry.workspaceId);
+    if (entry.pane.projectId) {
+      store.setActiveProject(entry.pane.projectId, entry.workspaceId);
+    }
+    if (entry.pane.backgrounded) {
+      store.setPaneBackgrounded(entry.pane.id, false, entry.workspaceId);
+    }
+    if (entry.pane.sessionId) {
+      store.setActiveTerminal(entry.pane.sessionId, entry.workspaceId);
+    }
+  };
 
   return (
     <div className="w-60 h-full flex flex-col overflow-hidden bg-[#1d1811] border-r border-white/10 animate-fade-in">
@@ -197,18 +240,52 @@ export function Sidebar() {
           </div>
         )}
 
-        {taggedPanes.length > 0 && (
+        {agentEntries.length > 0 && (
           <div>
-            <div className="text-[10px] font-display font-semibold text-[#6f6455] uppercase tracking-widest mb-2 px-1">
-              Agents on deck
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-[10px] font-display font-semibold text-[#6f6455] uppercase tracking-widest">
+                Agents
+              </span>
+              {runningAgentCount > 0 && (
+                <span className="text-[10px] font-mono text-accent">{runningAgentCount} running</span>
+              )}
             </div>
-            <div className="space-y-1">
-              {taggedPanes.map((p) => (
-                <div key={p.id} className="flex items-center gap-2 px-1 text-[12px] text-[#a99a86]">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                  <span className="truncate">{p.title}</span>
-                </div>
-              ))}
+            <div className="space-y-0.5">
+              {sortedAgents.map((entry) => {
+                const { pane } = entry;
+                return (
+                  <button
+                    key={pane.id}
+                    onClick={() => jumpToAgent(entry)}
+                    className="group w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left hover:bg-white/[0.04] transition-colors"
+                    title={`Jump to ${pane.title}${entry.projectLabel ? ` · ${entry.projectLabel}` : ""}`}
+                  >
+                    <span
+                      className={`shrink-0 w-1.5 h-1.5 rounded-full ${pane.running ? "animate-pulse-soft" : ""}`}
+                      style={{
+                        backgroundColor: pane.color,
+                        boxShadow: pane.running ? `0 0 6px 1px ${pane.color}` : undefined,
+                      }}
+                    />
+                    <span className="flex-1 min-w-0">
+                      <span
+                        className="block text-[12.5px] font-medium truncate"
+                        style={{ color: pane.color }}
+                      >
+                        {pane.title}
+                      </span>
+                      <span className="block text-[10px] text-[#6f6455] truncate">
+                        {entry.projectLabel ?? "unscoped"} · {entry.workspaceName}
+                      </span>
+                    </span>
+                    {pane.backgrounded && (
+                      <span className="shrink-0 text-[9px] font-mono uppercase tracking-wide text-[#6f6455]">
+                        bg
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
