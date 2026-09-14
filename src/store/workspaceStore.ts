@@ -46,6 +46,10 @@ export interface Pane {
    * across restarts — reset to false whenever a persisted session is
    * restored, since there is no live process to reflect anymore. */
   running?: boolean;
+  /** Ephemeral: true when output has gone quiet right after something that
+   * looks like a yes/no or permission prompt — the agent is likely blocked
+   * on the user. Same restart-reset rule as `running`. */
+  waitingForInput?: boolean;
   /** Which project this pane belongs to. `undefined` means the pane is
    * unscoped and only shows when no project is active — new panes are
    * stamped with whichever project is active at creation time. */
@@ -123,6 +127,7 @@ interface WorkspaceState {
   renamePane: (paneId: string, title: string | undefined, workspaceId?: string) => void;
   setPaneColor: (paneId: string, color: string | undefined, workspaceId?: string) => void;
   setPaneRunning: (paneId: string, running: boolean, workspaceId?: string) => void;
+  setPaneWaiting: (paneId: string, waiting: boolean, workspaceId?: string) => void;
   setPaneBackgrounded: (paneId: string, backgrounded: boolean, workspaceId?: string) => void;
 
   saveWorkspaceTemplate: (workspaceId: string, name: string) => void;
@@ -380,6 +385,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             id: newId(),
             sessionId: undefined,
             running: false,
+            waitingForInput: false,
           };
           return {
             closedPanes: rest,
@@ -469,7 +475,28 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 ? {
                   ...w,
                   panes: w.panes.map((p) =>
-                    p.id === paneId ? { ...p, running } : p
+                    p.id === paneId
+                      ? { ...p, running, waitingForInput: running ? false : p.waitingForInput }
+                      : p
+                  ),
+                }
+                : w
+            ),
+          };
+        });
+      },
+
+      setPaneWaiting: (paneId, waiting, workspaceId) => {
+        set((state) => {
+          const id = workspaceId ?? state.activeWorkspaceId ?? state.workspaces[0]?.id;
+          if (!id) return state;
+          return {
+            workspaces: state.workspaces.map((w) =>
+              w.id === id
+                ? {
+                  ...w,
+                  panes: w.panes.map((p) =>
+                    p.id === paneId ? { ...p, waitingForInput: waiting } : p
                   ),
                 }
                 : w
@@ -597,7 +624,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
                 w.projects.find((pr) => pane.cwd && pane.cwd.startsWith(pr.root))?.id ??
                 w.activeProjectId ??
                 undefined;
-              return { ...pane, sessionId: undefined, running: false, projectId };
+              return {
+                ...pane,
+                sessionId: undefined,
+                running: false,
+                waitingForInput: false,
+                projectId,
+              };
             });
           return {
             ...w,

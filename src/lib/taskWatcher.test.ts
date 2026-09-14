@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { agentColor, agentName, shouldNotify, TaskWatcher } from "./taskWatcher";
+import { agentColor, agentName, looksLikePrompt, shouldNotify, TaskWatcher } from "./taskWatcher";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -207,6 +207,114 @@ describe("TaskWatcher", () => {
     w.start();
     w.onInput("   \r");
     expect(onCommand).not.toHaveBeenCalled();
+    w.stop();
+  });
+
+  it("isTypingLine is true mid-line and false once submitted", () => {
+    const { w } = makeWatcher();
+    expect(w.isTypingLine()).toBe(false);
+    w.onInput("hello");
+    expect(w.isTypingLine()).toBe(true);
+    w.onInput("\r");
+    expect(w.isTypingLine()).toBe(false);
+    w.stop();
+  });
+
+  it("isTypingLine goes back to false after backspacing to empty", () => {
+    const { w } = makeWatcher();
+    w.onInput("a");
+    expect(w.isTypingLine()).toBe(true);
+    w.onInput("\x7f");
+    expect(w.isTypingLine()).toBe(false);
+    w.stop();
+  });
+});
+
+describe("looksLikePrompt", () => {
+  it.each([
+    "Continue? (y/n)",
+    "Overwrite file? [y/N]",
+    "Proceed? [Y/n]",
+    "Do you want to proceed?",
+    "Do you want to make this edit to foo.ts?",
+    "Do you want to create bar.ts?",
+    "Do you trust the files in this folder?",
+    "Allow this command to run?",
+    "Press Enter to continue",
+    "Apply changes (yes/no)?",
+  ])("recognizes: %s", (text) => {
+    expect(looksLikePrompt(text)).toBe(true);
+  });
+
+  it.each([
+    "Building project...",
+    "5 files changed, 12 insertions(+)",
+    "npm install completed successfully",
+    "",
+  ])("does not flag plain output: %s", (text) => {
+    expect(looksLikePrompt(text)).toBe(false);
+  });
+
+  it("ignores ANSI escape codes when matching", () => {
+    expect(looksLikePrompt("\x1b[33mContinue? (y/n)\x1b[0m")).toBe(true);
+  });
+});
+
+describe("TaskWatcher waiting-for-input detection", () => {
+  function makeWaitingWatcher() {
+    const onDone = vi.fn();
+    const onWaitingChange = vi.fn();
+    const w = new TaskWatcher({
+      onDone,
+      onWaitingChange,
+      intervalMs: 1000,
+      waitingQuietMs: 1500,
+    });
+    w.start();
+    return { w, onWaitingChange };
+  }
+
+  it("flags waiting once prompt-like output has been quiet long enough", () => {
+    const { w, onWaitingChange } = makeWaitingWatcher();
+    w.onOutput("Do you want to proceed? (y/n) ");
+    vi.advanceTimersByTime(2000);
+    expect(onWaitingChange).toHaveBeenCalledWith(true);
+    w.stop();
+  });
+
+  it("does not flag waiting for ordinary output going quiet", () => {
+    const { w, onWaitingChange } = makeWaitingWatcher();
+    w.onOutput("Build succeeded in 2.3s");
+    vi.advanceTimersByTime(5000);
+    expect(onWaitingChange).not.toHaveBeenCalled();
+    w.stop();
+  });
+
+  it("does not flag waiting before the quiet threshold has passed", () => {
+    const { w, onWaitingChange } = makeWaitingWatcher();
+    w.onOutput("Continue? (y/n) ");
+    vi.advanceTimersByTime(1000);
+    expect(onWaitingChange).not.toHaveBeenCalled();
+    w.stop();
+  });
+
+  it("clears waiting as soon as the user responds", () => {
+    const { w, onWaitingChange } = makeWaitingWatcher();
+    w.onOutput("Continue? (y/n) ");
+    vi.advanceTimersByTime(2000);
+    expect(onWaitingChange).toHaveBeenLastCalledWith(true);
+    w.onInput("y");
+    expect(onWaitingChange).toHaveBeenLastCalledWith(false);
+    w.stop();
+  });
+
+  it("clears waiting once new output resumes on its own", () => {
+    const { w, onWaitingChange } = makeWaitingWatcher();
+    w.onOutput("Continue? (y/n) ");
+    vi.advanceTimersByTime(2000);
+    expect(onWaitingChange).toHaveBeenLastCalledWith(true);
+    w.onOutput("proceeding...");
+    expect(onWaitingChange).toHaveBeenLastCalledWith(false);
     w.stop();
   });
 });

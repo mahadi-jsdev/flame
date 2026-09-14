@@ -103,6 +103,10 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
     const watcher = new TaskWatcher({
       onDone: (command) => void maybeNotify(command),
       onCommand: (command) => maybeAutoTag(command),
+      onWaitingChange: (waiting) => {
+        useWorkspaceStore.getState().setPaneWaiting(paneId, waiting);
+        if (waiting) void notifyWaiting();
+      },
     });
 
     const maybeAutoTag = (command: string) => {
@@ -120,7 +124,7 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
       if (color) useWorkspaceStore.getState().setPaneColor(paneId, color);
     };
 
-    const maybeNotify = async (command: string) => {
+    const sendNotification = async (title: string, body: string) => {
       const st = useWorkspaceStore.getState();
       const w = st.getActiveWorkspace();
       const isActivePane = w?.activeTerminalId === sessionIdRef.current;
@@ -137,14 +141,27 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
         if (!(await mod.isPermissionGranted())) {
           if ((await mod.requestPermission()) !== "granted") return;
         }
-        const agent = agentName(command);
-        await mod.sendNotification({
-          title: agent ? `${agent} finished` : "Terminal task finished",
-          body: command || "A task completed or is waiting for input",
-        });
+        await mod.sendNotification({ title, body });
       } catch {
         // notifications unavailable
       }
+    };
+
+    const maybeNotify = (command: string) => {
+      const agent = agentName(command);
+      return sendNotification(
+        agent ? `${agent} finished` : "Terminal task finished",
+        command || "A task completed or is waiting for input",
+      );
+    };
+
+    const notifyWaiting = () => {
+      const pane = useWorkspaceStore
+        .getState()
+        .workspaces.flatMap((w) => w.panes)
+        .find((p) => p.id === paneId);
+      const label = pane?.title ?? "Terminal";
+      return sendNotification(`${label} needs your input`, "Waiting on a prompt or confirmation");
     };
 
     const initialSettings = useWorkspaceStore.getState().settings;
@@ -298,13 +315,14 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
 
         const unlistenDataPromise = onPtyData((payload) => {
           if (payload.id !== id) return;
-          watcher.onOutput();
-          markRunning();
-          const bytes = new Uint8Array(
-            atob(payload.chunk_b64)
-              .split("")
-              .map((c) => c.charCodeAt(0)),
-          );
+          const binaryStr = atob(payload.chunk_b64);
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+          watcher.onOutput(binaryStr);
+          // A burst of output right after a keystroke is usually just the
+          // shell echoing back what was typed, not the agent doing work —
+          // only flag "running" once a line has actually been submitted.
+          if (!watcher.isTypingLine()) markRunning();
           term.write(bytes);
         });
 

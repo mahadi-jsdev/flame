@@ -65,9 +65,11 @@ export function Sidebar() {
         };
       }),
   );
+  const agentPriority = (p: Pane) => (p.waitingForInput ? 2 : p.running ? 1 : 0);
   const sortedAgents = [...agentEntries].sort(
-    (a, b) => Number(!!b.pane.running) - Number(!!a.pane.running),
+    (a, b) => agentPriority(b.pane) - agentPriority(a.pane),
   );
+  const waitingAgentCount = agentEntries.filter((a) => a.pane.waitingForInput).length;
   const runningAgentCount = agentEntries.filter((a) => a.pane.running).length;
 
   const jumpToAgent = (entry: AgentEntry) => {
@@ -246,13 +248,22 @@ export function Sidebar() {
               <span className="text-[10px] font-display font-semibold text-[#6f6455] uppercase tracking-widest">
                 Agents
               </span>
-              {runningAgentCount > 0 && (
-                <span className="text-[10px] font-mono text-accent">{runningAgentCount} running</span>
-              )}
+              <span className="flex items-center gap-2">
+                {waitingAgentCount > 0 && (
+                  <span className="text-[10px] font-mono text-[#fb7185]">
+                    {waitingAgentCount} need{waitingAgentCount === 1 ? "s" : ""} input
+                  </span>
+                )}
+                {runningAgentCount > 0 && (
+                  <span className="text-[10px] font-mono text-accent">{runningAgentCount} running</span>
+                )}
+              </span>
             </div>
             <div className="space-y-0.5">
               {sortedAgents.map((entry) => {
                 const { pane } = entry;
+                const dotColor = pane.waitingForInput ? "#fb7185" : pane.color;
+                const pulsing = pane.waitingForInput || pane.running;
                 return (
                   <button
                     key={pane.id}
@@ -261,10 +272,10 @@ export function Sidebar() {
                     title={`Jump to ${pane.title}${entry.projectLabel ? ` · ${entry.projectLabel}` : ""}`}
                   >
                     <span
-                      className={`shrink-0 w-1.5 h-1.5 rounded-full ${pane.running ? "animate-pulse-soft" : ""}`}
+                      className={`shrink-0 w-1.5 h-1.5 rounded-full ${pulsing ? "animate-pulse-soft" : ""}`}
                       style={{
-                        backgroundColor: pane.color,
-                        boxShadow: pane.running ? `0 0 6px 1px ${pane.color}` : undefined,
+                        backgroundColor: dotColor,
+                        boxShadow: pulsing ? `0 0 6px 1px ${dotColor}` : undefined,
                       }}
                     />
                     <span className="flex-1 min-w-0">
@@ -278,7 +289,12 @@ export function Sidebar() {
                         {entry.projectLabel ?? "unscoped"} · {entry.workspaceName}
                       </span>
                     </span>
-                    {pane.backgrounded && (
+                    {pane.waitingForInput && (
+                      <span className="shrink-0 text-[9px] font-mono uppercase tracking-wide text-[#fb7185]">
+                        needs input
+                      </span>
+                    )}
+                    {!pane.waitingForInput && pane.backgrounded && (
                       <span className="shrink-0 text-[9px] font-mono uppercase tracking-wide text-[#6f6455]">
                         bg
                       </span>

@@ -50,6 +50,20 @@ function baseName(path: string) {
   );
 }
 
+const WAITING_COLOR = "#fb7185";
+
+function paneStatusDotClass(pane: Pane) {
+  if (pane.waitingForInput) return "bg-[#fb7185] animate-pulse-soft";
+  if (pane.running) return "bg-accent animate-pulse-soft";
+  return "bg-[#6f6455]";
+}
+
+function paneStatusGlow(pane: Pane): CSSProperties | undefined {
+  if (pane.waitingForInput) return { boxShadow: `0 0 6px 1px ${WAITING_COLOR}` };
+  if (pane.running) return { boxShadow: "0 0 6px 1px var(--color-accent)" };
+  return undefined;
+}
+
 // Counts 2-4 get a hand-placed layout (2: side by side; 3: two on top, one
 // spanning the full bottom row; 4: that bottom row splits in half too) with
 // a real draggable gutter track between cells. 5+ falls back to a plain
@@ -389,11 +403,7 @@ export function Workspace() {
                   className="group shrink-0 flex items-center gap-1.5 pl-2.5 pr-2 py-1 rounded-full bg-white/[0.04] border border-white/10 hover:border-accent/40 hover:bg-white/[0.06] transition-colors"
                   title="Bring to foreground"
                 >
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      pane.running ? "bg-accent animate-pulse-soft" : "bg-[#6f6455]"
-                    }`}
-                  />
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${paneStatusDotClass(pane)}`} />
                   <span
                     className="text-[11px] font-mono truncate max-w-[120px]"
                     style={{ color: pane.color ?? "#d9cbb5" }}
@@ -489,10 +499,8 @@ export function Workspace() {
                         />
                       )}
                       <span
-                        className={`shrink-0 w-1.5 h-1.5 rounded-full ${
-                          pane.running ? "bg-accent animate-pulse-soft" : "bg-[#6f6455]"
-                        }`}
-                        style={pane.running ? { boxShadow: "0 0 6px 1px var(--color-accent)" } : undefined}
+                        className={`shrink-0 w-1.5 h-1.5 rounded-full ${paneStatusDotClass(pane)}`}
+                        style={paneStatusGlow(pane)}
                       />
                       <button
                         onClick={() => cyclePaneColor(pane)}
@@ -545,10 +553,14 @@ export function Workspace() {
                     {pane.sessionId && (
                       <span
                         className={`shrink-0 text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
-                          pane.running ? "bg-accent/15 text-accent" : "bg-white/[0.04] text-[#6f6455]"
+                          pane.waitingForInput
+                            ? "bg-[#fb7185]/15 text-[#fb7185]"
+                            : pane.running
+                              ? "bg-accent/15 text-accent"
+                              : "bg-white/[0.04] text-[#6f6455]"
                         }`}
                       >
-                        {pane.running ? "running" : "idle"}
+                        {pane.waitingForInput ? "waiting" : pane.running ? "running" : "idle"}
                       </span>
                     )}
                     <button

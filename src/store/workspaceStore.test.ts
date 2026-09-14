@@ -464,6 +464,26 @@ describe("pane titles and colors", () => {
     store().setPaneRunning("p1", false, "w1");
     expect(w1().panes[0].running).toBe(false);
   });
+
+  it("setPaneWaiting toggles the waitingForInput flag", () => {
+    store().setPaneWaiting("p1", true, "w1");
+    expect(w1().panes[0].waitingForInput).toBe(true);
+    store().setPaneWaiting("p1", false, "w1");
+    expect(w1().panes[0].waitingForInput).toBe(false);
+  });
+
+  it("setPaneRunning(true) clears a pending waitingForInput flag", () => {
+    store().setPaneWaiting("p1", true, "w1");
+    store().setPaneRunning("p1", true, "w1");
+    expect(w1().panes[0].waitingForInput).toBe(false);
+    expect(w1().panes[0].running).toBe(true);
+  });
+
+  it("setPaneRunning(false) leaves waitingForInput untouched", () => {
+    store().setPaneWaiting("p1", true, "w1");
+    store().setPaneRunning("p1", false, "w1");
+    expect(w1().panes[0].waitingForInput).toBe(true);
+  });
 });
 
 describe("background and foreground", () => {

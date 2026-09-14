@@ -3,6 +3,39 @@ const AGENT_CMD =
 
 export const BUSY_MIN_MS = 10_000;
 export const QUIET_MS = 8_000;
+export const WAITING_QUIET_MS = 1_500;
+
+// Best-effort: common interactive-prompt phrasings used by AI coding agent
+// CLIs and shells when they're blocked on a yes/no or permission answer.
+// Necessarily a maintained list, not a general parser — false negatives
+// (a prompt we don't recognize) just mean no "waiting" indicator, which is
+// the same as today; false positives are the risk to keep in check.
+const PROMPT_PATTERNS: RegExp[] = [
+  /\(y\/n\)/i,
+  /\[y\/n\]/i,
+  /\[y\/N\]/,
+  /\[Y\/n\]/,
+  /\(yes\/no\)/i,
+  /do you want to proceed/i,
+  /do you want to make this edit/i,
+  /do you want to create/i,
+  /do you trust the files/i,
+  /trust this (folder|workspace|directory)/i,
+  /allow this (action|edit|command)/i,
+  /overwrite\?\s*$/im,
+  /continue\?\s*$/im,
+  /press enter to continue/i,
+  /\by\/n\b/i,
+];
+
+// Strips common CSI/OSC ANSI escape sequences so prompt text can be matched
+// against plain output rather than raw control codes.
+const ANSI_ESCAPE_RE = /\x1b\[[0-9;?]*[a-zA-Z]|\x1b\][^\x07]*(\x07|\x1b\\)/g;
+
+export function looksLikePrompt(text: string): boolean {
+  const clean = text.replace(ANSI_ESCAPE_RE, "");
+  return PROMPT_PATTERNS.some((re) => re.test(clean));
+}
 
 export const AGENT_COLORS: Record<string, string> = {
   claude: "#ffb238",
@@ -40,43 +73,71 @@ export function shouldNotify(
  * Watches a PTY stream: a burst of continuous output lasting `busyMinMs`
  * that then goes quiet for `quietMs` fires `onDone(lastCommand)`.
  * Input (user keystrokes) is tracked so the last typed command line is
- * available for the notification title/body.
+ * available for the notification title/body, and so output can be told
+ * apart from the shell simply echoing back what was just typed.
+ * Also watches for the output tail going quiet right after something that
+ * looks like a yes/no or permission prompt, firing `onWaitingChange(true)` —
+ * cleared as soon as the user responds or new output resumes.
  */
 export class TaskWatcher {
   private busyMinMs: number;
   private quietMs: number;
+  private waitingQuietMs: number;
   private onDone: (command: string) => void;
   private onCommand?: (command: string) => void;
+  private onWaitingChange?: (waiting: boolean) => void;
   private timer: ReturnType<typeof setInterval> | null = null;
   private lastDataAt = 0;
   private busyStart = 0;
   private inputBuf = "";
   private lastCommand = "";
+  private outputTail = "";
+  private waiting = false;
 
   constructor(opts: {
     onDone: (command: string) => void;
     onCommand?: (command: string) => void;
+    onWaitingChange?: (waiting: boolean) => void;
     busyMinMs?: number;
     quietMs?: number;
+    waitingQuietMs?: number;
     intervalMs?: number;
   }) {
     this.onDone = opts.onDone;
     this.onCommand = opts.onCommand;
+    this.onWaitingChange = opts.onWaitingChange;
     this.busyMinMs = opts.busyMinMs ?? BUSY_MIN_MS;
     this.quietMs = opts.quietMs ?? QUIET_MS;
+    this.waitingQuietMs = opts.waitingQuietMs ?? WAITING_QUIET_MS;
     this.intervalMs = opts.intervalMs ?? 2000;
   }
   private intervalMs: number;
 
-  /** Call on every PTY output chunk. */
-  onOutput() {
+  /** True while a line is being typed but not yet submitted (no trailing
+   * Enter) — output arriving during this window is the shell's own echo of
+   * the keystrokes, not the agent doing anything. */
+  isTypingLine(): boolean {
+    return this.inputBuf.length > 0;
+  }
+
+  /** Call on every PTY output chunk, with its decoded text. */
+  onOutput(text = "") {
     const now = Date.now();
     this.lastDataAt = now;
     if (!this.busyStart) this.busyStart = now;
+    if (text) this.outputTail = (this.outputTail + text).slice(-500);
+    if (this.waiting) {
+      this.waiting = false;
+      this.onWaitingChange?.(false);
+    }
   }
 
   /** Call on every user keystroke (xterm onData). */
   onInput(data: string) {
+    if (data && this.waiting) {
+      this.waiting = false;
+      this.onWaitingChange?.(false);
+    }
     for (const ch of data) {
       if (ch === "\r") {
         const cmd = this.inputBuf.trim();
@@ -108,8 +169,19 @@ export class TaskWatcher {
   }
 
   private tick() {
+    const now = Date.now();
+    if (
+      !this.waiting &&
+      this.lastDataAt &&
+      now - this.lastDataAt >= this.waitingQuietMs &&
+      looksLikePrompt(this.outputTail)
+    ) {
+      this.waiting = true;
+      this.onWaitingChange?.(true);
+    }
+
     if (!this.busyStart || !this.lastDataAt) return;
-    const quiet = Date.now() - this.lastDataAt;
+    const quiet = now - this.lastDataAt;
     if (quiet < this.quietMs) return;
     const busyFor = this.lastDataAt - this.busyStart;
     this.busyStart = 0;

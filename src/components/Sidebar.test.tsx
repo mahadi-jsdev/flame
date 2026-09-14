@@ -239,6 +239,64 @@ describe("Sidebar agent dashboard", () => {
     expect(screen.getByText("bg")).toBeInTheDocument();
   });
 
+  it("shows a 'needs input' count and badge for a waiting pane, and lists it first", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) => {
+        if (w.id === "w1") {
+          return {
+            ...w,
+            panes: [{ id: "p1", type: "terminal", title: "busy-one", color: "#fff", running: true }],
+          };
+        }
+        if (w.id === "w2") {
+          return {
+            ...w,
+            panes: [
+              {
+                id: "p2",
+                type: "terminal",
+                title: "stuck-one",
+                color: "#fff",
+                waitingForInput: true,
+              },
+            ],
+          };
+        }
+        return w;
+      }),
+    }));
+    render(<Sidebar />);
+    expect(screen.getByText("1 needs input")).toBeInTheDocument();
+    expect(screen.getByText("needs input")).toBeInTheDocument();
+    const names = screen.getAllByText(/-one$/).map((el) => el.textContent);
+    expect(names).toEqual(["stuck-one", "busy-one"]);
+  });
+
+  it("hides the 'bg' badge in favor of 'needs input' when a pane is both", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? {
+              ...w,
+              panes: [
+                {
+                  id: "p1",
+                  type: "terminal",
+                  title: "claude",
+                  color: "#fff",
+                  backgrounded: true,
+                  waitingForInput: true,
+                },
+              ],
+            }
+          : w,
+      ),
+    }));
+    render(<Sidebar />);
+    expect(screen.getByText("needs input")).toBeInTheDocument();
+    expect(screen.queryByText("bg")).not.toBeInTheDocument();
+  });
+
   it("clicking an entry jumps to its workspace, project, and terminal, and un-backgrounds it", () => {
     useWorkspaceStore.setState((s) => ({
       activeWorkspaceId: "w1",
