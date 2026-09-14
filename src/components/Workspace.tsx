@@ -399,7 +399,7 @@ export function Workspace() {
                       <X size={13} />
                     </button>
                   </div>
-                  <div className="flex-1 min-h-0 relative bg-[#0e0b08]">
+                  <div className="flex-1 min-h-0 relative bg-[#0e0b08] overflow-hidden">
                     <TerminalPane paneId={pane.id} />
                   </div>
                 </div>
@@ -438,7 +438,7 @@ export function Workspace() {
                   <span className="text-[10px]">Close</span>
                 </button>
               </div>
-              <div className="flex-1 min-h-0 relative bg-[#0e0b08]">
+              <div className="flex-1 min-h-0 relative bg-[#0e0b08] overflow-hidden">
                 <TerminalPane paneId={pane.id} />
               </div>
             </div>

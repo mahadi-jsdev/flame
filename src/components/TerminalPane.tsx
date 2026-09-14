@@ -148,9 +148,29 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
       try {
         await document.fonts.load('400 14px "JetBrainsMono Nerd Font Mono"');
         await document.fonts.load('700 14px "JetBrainsMono Nerd Font Mono"');
+        try {
+          await document.fonts.ready;
+        } catch {
+          // ignored — proceed with whatever metrics are available
+        }
 
         term.open(divRef.current!);
         fitAddon.fit();
+
+        // Re-fit once more after layout fully settles. A still-resolving
+        // flex/grid layout (or a font whose real metrics differ slightly
+        // from what was available at the first fit) can otherwise leave
+        // xterm with more rows than the box actually has room for, which
+        // then bleeds past the card since nothing clips it mid-render.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            try {
+              fitAddon.fit();
+            } catch {
+              // pane may have unmounted between frames
+            }
+          });
+        });
 
         term.attachCustomKeyEventHandler((e) => {
           if (e.type !== "keydown") return true;
@@ -278,7 +298,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
   };
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative h-full w-full overflow-hidden">
       <div ref={divRef} className="h-full w-full outline-none p-2" tabIndex={0} />
       {searchOpen && (
         <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-lg border border-white/10 bg-[#1d1811]/95 px-1.5 py-1 shadow-lg shadow-black/40 backdrop-blur">
