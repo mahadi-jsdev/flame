@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
+import { WebglAddon } from "@xterm/addon-webgl";
 import {
   killPty,
   onPtyData,
@@ -164,6 +165,19 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
 
         term.open(divRef.current!);
         fitAddon.fit();
+
+        // @xterm/xterm ships no accelerated renderer of its own — without
+        // this, every glyph is a plain styled DOM <span>, which renders
+        // noticeably blurrier/softer than a GPU-rendered glyph atlas.
+        // Falls back to that same DOM rendering (silently) if WebGL is
+        // unavailable or the context is later lost.
+        try {
+          const webglAddon = new WebglAddon();
+          webglAddon.onContextLoss(() => webglAddon.dispose());
+          term.loadAddon(webglAddon);
+        } catch {
+          // no WebGL support — DOM renderer remains active
+        }
 
         // Re-fit once more after layout fully settles. A still-resolving
         // flex/grid layout (or a font whose real metrics differ slightly

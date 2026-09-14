@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Cpu, Minus, Square, Copy, X } from "lucide-react";
+import { Flame, Minus, Square, Copy, X } from "lucide-react";
 
 async function getWin() {
   try {
@@ -36,8 +36,8 @@ export function TitleBar() {
         data-tauri-drag-region
         className="flex items-center gap-2 text-[11px] font-display font-medium tracking-wide text-[#a99a86] pointer-events-none"
       >
-        <Cpu size={12} className="text-accent" />
-        Hangar
+        <Flame size={12} className="text-accent" />
+        Flame
       </div>
       <div className="flex items-center h-full">
         <button

@@ -90,14 +90,6 @@ interface ClosedPane {
   workspaceId: string;
 }
 
-export interface TodoItem {
-  id: string;
-  text: string;
-  tag?: string;
-  done: boolean;
-  createdAt: number;
-}
-
 interface WorkspaceState {
   workspaces: Workspace[];
   activeWorkspaceId: string | null;
@@ -105,11 +97,6 @@ interface WorkspaceState {
   templates: WorkspaceTemplate[];
   closedPanes: ClosedPane[];
   updateSettings: (patch: Partial<AppSettings>) => void;
-
-  todos: TodoItem[];
-  addTodo: (raw: string) => void;
-  toggleTodo: (id: string) => void;
-  removeTodo: (id: string) => void;
 
   getActiveWorkspace: () => Workspace | undefined;
 
@@ -174,30 +161,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       settings: defaultSettings,
       updateSettings: (patch) =>
         set((state) => ({ settings: { ...state.settings, ...patch } })),
-
-      todos: [],
-      addTodo: (raw) => {
-        const trimmed = raw.trim();
-        if (!trimmed) return;
-        const tags = [...trimmed.matchAll(/#(\S+)/g)];
-        const tag = tags.length > 0 ? tags[tags.length - 1][1] : undefined;
-        const text = trimmed.replace(/#\S+/g, "").replace(/\s+/g, " ").trim();
-        if (!text) return;
-        set((state) => ({
-          todos: [
-            { id: newId(), text, tag, done: false, createdAt: Date.now() },
-            ...state.todos,
-          ],
-        }));
-      },
-      toggleTodo: (id) => {
-        set((state) => ({
-          todos: state.todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
-        }));
-      },
-      removeTodo: (id) => {
-        set((state) => ({ todos: state.todos.filter((t) => t.id !== id) }));
-      },
 
       getActiveWorkspace: () => {
         const { workspaces, activeWorkspaceId } = get();
@@ -585,16 +548,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         workspaces: s.workspaces,
         activeWorkspaceId: s.activeWorkspaceId,
         templates: s.templates,
-        todos: s.todos,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<WorkspaceState>;
         const settings = { ...defaultSettings, ...p.settings };
         const templates = p.templates ?? [];
-        const todos = p.todos ?? [];
 
         if (!settings.restoreSession || !p.workspaces || p.workspaces.length === 0) {
-          return { ...current, settings, templates, todos };
+          return { ...current, settings, templates };
         }
 
         const workspaces = p.workspaces.map((w) => {
@@ -622,7 +583,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           ...current,
           settings,
           templates,
-          todos,
           workspaces,
           activeWorkspaceId: p.activeWorkspaceId ?? null,
         };

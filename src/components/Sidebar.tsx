@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { useWorkspaceStore, Workspace } from "../store/workspaceStore";
 import { ProjectPanel } from "./ProjectPanel";
-import { TodoList } from "./TodoList";
 import {
   Plus,
   X,
   Pencil,
-  Cpu,
+  Flame,
   Bookmark,
   LayoutTemplate,
   Rocket,
@@ -45,10 +44,10 @@ export function Sidebar() {
     <div className="w-60 h-full flex flex-col overflow-hidden bg-[#1d1811] border-r border-white/10 animate-fade-in">
       <div className="h-14 shrink-0 flex items-center gap-2.5 px-4 border-b border-white/10">
         <div className="p-1.5 rounded-lg bg-gradient-to-br from-accent to-accent-2 ring-1 ring-white/10">
-          <Cpu size={14} className="text-[#1a1006]" />
+          <Flame size={14} className="text-[#1a1006]" />
         </div>
         <span className="font-display text-[13px] font-semibold tracking-wide text-[#f3e9d8] flex-1">
-          HANGAR
+          FLAME
         </span>
         <button
           onClick={() => store.updateSettings({ sidebarCollapsed: true })}
@@ -162,8 +161,6 @@ export function Sidebar() {
             })}
           </div>
         </div>
-
-        <TodoList />
 
         {store.templates.length > 0 && (
           <div>

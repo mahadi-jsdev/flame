@@ -62,6 +62,16 @@ impl PtyManager {
         let shell = shell.unwrap_or_else(default_shell);
         let shell_name = shell_name(&shell);
         let mut cmd = CommandBuilder::new(&shell);
+        // CommandBuilder inherits Flame's own process environment verbatim.
+        // That's fine when Flame itself was launched from a terminal, but a
+        // GUI-launched instance (desktop app menu, .desktop entry) has no
+        // controlling terminal and thus no TERM at all — which every spawned
+        // shell would otherwise inherit as unset, breaking anything that
+        // queries terminal capabilities (fish's own setup warnings, colors,
+        // cursor movement). Force sane values so every pane behaves like a
+        // real terminal no matter how Flame was launched.
+        cmd.env("TERM", "xterm-256color");
+        cmd.env("COLORTERM", "truecolor");
         if let Some(cwd) = cwd {
             cmd.cwd(cwd);
         }

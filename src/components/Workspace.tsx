@@ -10,7 +10,7 @@ import {
   Plus,
   X,
   Command,
-  Cpu,
+  Flame,
   GripVertical,
   Settings,
   Folder,
@@ -44,7 +44,9 @@ function baseName(path: string) {
 
 function getGridLayout(count: number) {
   if (count <= 1) return { cols: 1, rows: 1 };
-  if (count <= 2) return { cols: 1, rows: 2 };
+  // 2: side by side. 3: two on top, one spanning the full bottom row
+  // (see paneSpanStyle). 4: that bottom row splits in half too, giving an
+  // even 2x2 grid with no spanning needed.
   if (count <= 4) return { cols: 2, rows: 2 };
   const cols = 3;
   return { cols, rows: Math.ceil(count / cols) };
@@ -222,7 +224,7 @@ export function Workspace() {
         <header className="h-14 shrink-0 px-5 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3 min-w-0">
             <div className="p-2 rounded-xl bg-gradient-to-br from-accent to-accent-2 ring-1 ring-white/10 shrink-0">
-              <Cpu size={18} className="text-[#1a1006]" />
+              <Flame size={18} className="text-[#1a1006]" />
             </div>
             <div className="flex items-baseline gap-2 min-w-0 text-sm">
               <span className="font-display font-semibold tracking-wide text-[#f3e9d8] truncate">
