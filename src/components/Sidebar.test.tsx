@@ -139,3 +139,134 @@ describe("Sidebar", () => {
     expect(store().templates).toHaveLength(0);
   });
 });
+
+describe("Sidebar agent dashboard", () => {
+  it("hides the Agents section when no panes are tagged", () => {
+    render(<Sidebar />);
+    expect(screen.queryByText("Agents")).not.toBeInTheDocument();
+  });
+
+  it("ignores panes with no title/color, and no running count when idle", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? { ...w, panes: [{ id: "p1", type: "terminal", title: undefined, color: undefined }] }
+          : w,
+      ),
+    }));
+    render(<Sidebar />);
+    expect(screen.queryByText("Agents")).not.toBeInTheDocument();
+  });
+
+  it("shows a tagged pane with its project and workspace label", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? {
+              ...w,
+              projects: [{ id: "pr1", root: "/home/me/website-v2" }],
+              panes: [
+                {
+                  id: "p1",
+                  type: "terminal",
+                  title: "claude",
+                  color: "#ff8800",
+                  projectId: "pr1",
+                  sessionId: "s1",
+                },
+              ],
+            }
+          : w,
+      ),
+    }));
+    render(<Sidebar />);
+    expect(screen.getByText("Agents")).toBeInTheDocument();
+    expect(screen.getByText("claude")).toBeInTheDocument();
+    expect(screen.getByText("website-v2 · Alpha")).toBeInTheDocument();
+    expect(screen.queryByText(/running$/)).not.toBeInTheDocument();
+  });
+
+  it("shows 'unscoped' for a tagged pane with no project", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? { ...w, panes: [{ id: "p1", type: "terminal", title: "devin", color: "#00ff88" }] }
+          : w,
+      ),
+    }));
+    render(<Sidebar />);
+    expect(screen.getByText("unscoped · Alpha")).toBeInTheDocument();
+  });
+
+  it("shows a running count and lists running agents first", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) => {
+        if (w.id === "w1") {
+          return {
+            ...w,
+            panes: [{ id: "p1", type: "terminal", title: "idle-one", color: "#fff", running: false }],
+          };
+        }
+        if (w.id === "w2") {
+          return {
+            ...w,
+            panes: [{ id: "p2", type: "terminal", title: "busy-one", color: "#fff", running: true }],
+          };
+        }
+        return w;
+      }),
+    }));
+    render(<Sidebar />);
+    expect(screen.getByText("1 running")).toBeInTheDocument();
+    const names = screen.getAllByText(/-one$/).map((el) => el.textContent);
+    expect(names).toEqual(["busy-one", "idle-one"]);
+  });
+
+  it("shows a 'bg' badge for a backgrounded pane", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? {
+              ...w,
+              panes: [
+                { id: "p1", type: "terminal", title: "claude", color: "#fff", backgrounded: true },
+              ],
+            }
+          : w,
+      ),
+    }));
+    render(<Sidebar />);
+    expect(screen.getByText("bg")).toBeInTheDocument();
+  });
+
+  it("clicking an entry jumps to its workspace, project, and terminal, and un-backgrounds it", () => {
+    useWorkspaceStore.setState((s) => ({
+      activeWorkspaceId: "w1",
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w2"
+          ? {
+              ...w,
+              projects: [{ id: "pr2", root: "/repo/api" }],
+              panes: [
+                {
+                  id: "p2",
+                  type: "terminal",
+                  title: "claude",
+                  color: "#fff",
+                  projectId: "pr2",
+                  sessionId: "s2",
+                  backgrounded: true,
+                },
+              ],
+            }
+          : w,
+      ),
+    }));
+    render(<Sidebar />);
+    fireEvent.click(screen.getByText("claude"));
+    expect(store().activeWorkspaceId).toBe("w2");
+    expect(store().workspaces.find((w) => w.id === "w2")?.activeProjectId).toBe("pr2");
+    expect(store().workspaces.find((w) => w.id === "w2")?.activeTerminalId).toBe("s2");
+    expect(store().workspaces.find((w) => w.id === "w2")?.panes[0].backgrounded).toBe(false);
+  });
+});
