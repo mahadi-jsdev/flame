@@ -24,6 +24,7 @@ function reset() {
     settings: defaultSettings,
     templates: [],
     closedPanes: [],
+    todos: [],
   });
 }
 
@@ -580,5 +581,63 @@ describe("project-scoped panes", () => {
     expect(panesForA.map((p) => p.id)).not.toEqual(
       expect.arrayContaining(panesForB.map((p) => p.id)),
     );
+  });
+});
+
+describe("todos", () => {
+  it("adds a todo with no tag", () => {
+    store().addTodo("write the changelog");
+    expect(store().todos).toHaveLength(1);
+    expect(store().todos[0]).toMatchObject({
+      text: "write the changelog",
+      tag: undefined,
+      done: false,
+    });
+  });
+
+  it("extracts a #tag out of the raw input", () => {
+    store().addTodo("fix auth bug #ai-terminal-agent");
+    expect(store().todos[0]).toMatchObject({
+      text: "fix auth bug",
+      tag: "ai-terminal-agent",
+    });
+  });
+
+  it("uses the last tag when multiple are present", () => {
+    store().addTodo("do the thing #first #second");
+    expect(store().todos[0].tag).toBe("second");
+  });
+
+  it("ignores blank input", () => {
+    store().addTodo("   ");
+    expect(store().todos).toHaveLength(0);
+  });
+
+  it("ignores input that is only a tag", () => {
+    store().addTodo("#onlytag");
+    expect(store().todos).toHaveLength(0);
+  });
+
+  it("toggles done state", () => {
+    store().addTodo("ship it");
+    const id = store().todos[0].id;
+    store().toggleTodo(id);
+    expect(store().todos[0].done).toBe(true);
+    store().toggleTodo(id);
+    expect(store().todos[0].done).toBe(false);
+  });
+
+  it("removes a todo", () => {
+    store().addTodo("one");
+    store().addTodo("two");
+    const id = store().todos[0].id;
+    store().removeTodo(id);
+    expect(store().todos.map((t) => t.text)).toEqual(["one"]);
+  });
+
+  it("is not scoped to any workspace or project", () => {
+    store().addTodo("global thing");
+    store().addWorkspace("Other");
+    expect(store().todos).toHaveLength(1);
   });
 });

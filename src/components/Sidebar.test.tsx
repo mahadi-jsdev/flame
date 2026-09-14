@@ -30,6 +30,7 @@ function reset() {
     settings: defaultSettings,
     templates: [],
     closedPanes: [],
+    todos: [],
   });
 }
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useWorkspaceStore, Workspace } from "../store/workspaceStore";
 import { ProjectPanel } from "./ProjectPanel";
+import { TodoList } from "./TodoList";
 import {
   Plus,
   X,
@@ -161,6 +162,8 @@ export function Sidebar() {
             })}
           </div>
         </div>
+
+        <TodoList />
 
         {store.templates.length > 0 && (
           <div>
