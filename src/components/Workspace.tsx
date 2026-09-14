@@ -150,6 +150,17 @@ export function Workspace() {
   const [colSplit, setColSplit] = useState(0.5);
   const [rowSplit, setRowSplit] = useState(0.5);
   const mainRef = useRef<HTMLDivElement>(null);
+  // Every pane stays mounted forever (see allPanes above) and only toggles
+  // the `hidden` class when switching projects/workspaces. A CSS @keyframes
+  // animation replays from 0% any time an element goes display:none -> block,
+  // so applying the pop-in animation unconditionally on .terminal-card would
+  // replay it on every project switch. Instead, play it once per pane's true
+  // first appearance and drop the class for good once that animation
+  // actually finishes (onAnimationEnd, not a timer, so it's never cut short).
+  const [settledPaneIds, setSettledPaneIds] = useState<Set<string>>(new Set());
+  const settlePane = (id: string) => {
+    setSettledPaneIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  };
 
   const startColDrag = (e: ReactPointerEvent) => {
     e.preventDefault();
@@ -441,7 +452,10 @@ export function Workspace() {
                     setDropTargetId(null);
                   }}
                   style={panePlacement(index, count)}
+                  onAnimationEnd={() => settlePane(pane.id)}
                   className={`terminal-card group min-h-0 h-full w-full flex flex-col rounded-2xl border overflow-hidden transition-colors duration-200 bg-[#1d1811]/70 ${
+                    settledPaneIds.has(pane.id) ? "" : "animate-pop-in"
+                  } ${
                     !isVisible
                       ? "hidden"
                       : isDropTarget

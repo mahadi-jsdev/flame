@@ -383,3 +383,183 @@ describe("Workspace shell", () => {
     expect(scoped).toHaveLength(1);
   });
 });
+
+function setPaneCount(n: number) {
+  const panes = Array.from({ length: n }, (_, i) => ({
+    id: `p${i + 1}`,
+    type: "terminal" as const,
+  }));
+  useWorkspaceStore.setState((s) => ({
+    workspaces: s.workspaces.map((w) => (w.id === "w1" ? { ...w, panes } : w)),
+  }));
+}
+
+// A backgrounded pane's title shows up twice (its own — hidden — card, and
+// the tray chip that restores it), so this can't just be getByText().
+function cardFor(title: string) {
+  const card = screen
+    .getAllByText(title)
+    .map((el) => el.closest(".terminal-card"))
+    .find((el): el is HTMLElement => el !== null);
+  if (!card) throw new Error(`No .terminal-card found for "${title}"`);
+  return card;
+}
+
+// Regression coverage for the exact bug class found in review: the vertical
+// divider's row span was keyed off the wrong condition and bled through the
+// full-width third pane at count===3. These pin down the CSS grid placement
+// directly rather than relying on a screenshot to catch it again.
+describe("resizable grid layout", () => {
+  it("1 pane: no explicit placement, no divider", () => {
+    setPaneCount(1);
+    render(<Workspace />);
+    const card = cardFor("Terminal 1");
+    expect(card.style.gridColumn).toBe("");
+    expect(card.style.gridRow).toBe("");
+    expect(document.querySelector(".cursor-col-resize")).toBeNull();
+    expect(document.querySelector(".cursor-row-resize")).toBeNull();
+  });
+
+  it("2 panes: side by side with one vertical divider spanning the single row", () => {
+    setPaneCount(2);
+    render(<Workspace />);
+    expect(cardFor("Terminal 1").style.gridColumn).toBe("1");
+    expect(cardFor("Terminal 1").style.gridRow).toBe("1");
+    expect(cardFor("Terminal 2").style.gridColumn).toBe("3");
+    expect(cardFor("Terminal 2").style.gridRow).toBe("1");
+
+    const vDivider = document.querySelector(".cursor-col-resize") as HTMLElement;
+    expect(vDivider).not.toBeNull();
+    expect(vDivider.style.gridRow).toBe("1");
+    expect(document.querySelector(".cursor-row-resize")).toBeNull();
+  });
+
+  it("3 panes: third spans the full bottom row, vertical divider stays confined to the top row", () => {
+    setPaneCount(3);
+    render(<Workspace />);
+    expect(cardFor("Terminal 1").style.gridColumn).toBe("1");
+    expect(cardFor("Terminal 1").style.gridRow).toBe("1");
+    expect(cardFor("Terminal 2").style.gridColumn).toBe("3");
+    expect(cardFor("Terminal 2").style.gridRow).toBe("1");
+    expect(cardFor("Terminal 3").style.gridColumn).toBe("1 / 4");
+    expect(cardFor("Terminal 3").style.gridRow).toBe("3");
+
+    const vDivider = document.querySelector(".cursor-col-resize") as HTMLElement;
+    // This is the regression: must be "1", NOT "1 / 4" — otherwise it cuts
+    // straight through pane 3's full-width row.
+    expect(vDivider.style.gridRow).toBe("1");
+
+    const hDivider = document.querySelector(".cursor-row-resize") as HTMLElement;
+    expect(hDivider).not.toBeNull();
+    expect(hDivider.style.gridColumn).toBe("1 / 4");
+    expect(hDivider.style.gridRow).toBe("2");
+  });
+
+  it("4 panes: even 2x2 grid, vertical divider spans both rows", () => {
+    setPaneCount(4);
+    render(<Workspace />);
+    expect(cardFor("Terminal 1").style.gridColumn).toBe("1");
+    expect(cardFor("Terminal 1").style.gridRow).toBe("1");
+    expect(cardFor("Terminal 2").style.gridColumn).toBe("3");
+    expect(cardFor("Terminal 2").style.gridRow).toBe("1");
+    expect(cardFor("Terminal 3").style.gridColumn).toBe("1");
+    expect(cardFor("Terminal 3").style.gridRow).toBe("3");
+    expect(cardFor("Terminal 4").style.gridColumn).toBe("3");
+    expect(cardFor("Terminal 4").style.gridRow).toBe("3");
+
+    const vDivider = document.querySelector(".cursor-col-resize") as HTMLElement;
+    expect(vDivider.style.gridRow).toBe("1 / 4");
+  });
+
+  it("5 panes: falls back to the plain wrapping grid, no explicit placement or dividers", () => {
+    setPaneCount(5);
+    render(<Workspace />);
+    for (let i = 1; i <= 5; i++) {
+      const card = cardFor(`Terminal ${i}`);
+      expect(card.style.gridColumn).toBe("");
+      expect(card.style.gridRow).toBe("");
+    }
+    expect(document.querySelector(".cursor-col-resize")).toBeNull();
+    expect(document.querySelector(".cursor-row-resize")).toBeNull();
+  });
+});
+
+describe("background and foreground", () => {
+  it("sending a pane to the background hides its card and shows it in the tray", () => {
+    setPaneCount(3);
+    render(<Workspace />);
+    fireEvent.click(
+      cardFor("Terminal 2").querySelector('button[title="Send to background"]')!,
+    );
+
+    expect(cardFor("Terminal 2").className.split(/\s+/)).toContain("hidden");
+    expect(screen.getByText("Background")).toBeInTheDocument();
+    expect(
+      screen.getByTitle("Bring to foreground").textContent,
+    ).toContain("Terminal 2");
+    expect(screen.getByText(/2 bays/)).toBeInTheDocument();
+  });
+
+  it("keeps the remaining panes' numbers stable instead of renumbering", () => {
+    setPaneCount(3);
+    render(<Workspace />);
+    fireEvent.click(
+      cardFor("Terminal 2").querySelector('button[title="Send to background"]')!,
+    );
+    expect(screen.getByText("Terminal 1")).toBeInTheDocument();
+    expect(screen.getByText("Terminal 3")).toBeInTheDocument();
+  });
+
+  it("bringing a pane back to the foreground restores it to the grid and clears the tray", () => {
+    setPaneCount(3);
+    render(<Workspace />);
+    fireEvent.click(
+      cardFor("Terminal 2").querySelector('button[title="Send to background"]')!,
+    );
+    fireEvent.click(screen.getByTitle("Bring to foreground"));
+
+    expect(cardFor("Terminal 2").className.split(/\s+/)).not.toContain("hidden");
+    expect(screen.queryByText("Background")).not.toBeInTheDocument();
+    expect(screen.getByText(/3 bays/)).toBeInTheDocument();
+  });
+
+  it("bringing a pane forward focuses it", () => {
+    setPaneCount(2);
+    act(() => {
+      store().setSessionId("p2", "sess-2", "fish", "/repo", "w1");
+    });
+    render(<Workspace />);
+    fireEvent.click(
+      cardFor("Terminal 2").querySelector('button[title="Send to background"]')!,
+    );
+    fireEvent.click(screen.getByTitle("Bring to foreground"));
+    expect(store().workspaces[0].activeTerminalId).toBe("sess-2");
+  });
+
+  it("never remounts the terminal while backgrounding or restoring it", () => {
+    mountCounts.clear();
+    setPaneCount(3);
+    render(<Workspace />);
+    fireEvent.click(
+      cardFor("Terminal 2").querySelector('button[title="Send to background"]')!,
+    );
+    fireEvent.click(screen.getByTitle("Bring to foreground"));
+    expect(mountCounts.get("p1")).toBe(1);
+    expect(mountCounts.get("p2")).toBe(1);
+    expect(mountCounts.get("p3")).toBe(1);
+  });
+});
+
+describe("sidebar collapse", () => {
+  it("collapses to a slim rail and expands back", () => {
+    render(<Workspace />);
+    expect(screen.getByText("FLAME")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle("Collapse sidebar"));
+    expect(screen.queryByText("FLAME")).not.toBeInTheDocument();
+    expect(screen.getByTitle("Expand sidebar")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle("Expand sidebar"));
+    expect(screen.getByText("FLAME")).toBeInTheDocument();
+  });
+});
