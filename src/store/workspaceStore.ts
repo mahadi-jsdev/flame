@@ -10,6 +10,7 @@ export interface AppSettings {
   notifications: boolean;
   restoreSession: boolean;
   theme: string;
+  sidebarCollapsed: boolean;
 }
 
 export const defaultSettings: AppSettings = {
@@ -21,6 +22,7 @@ export const defaultSettings: AppSettings = {
   notifications: true,
   restoreSession: true,
   theme: "flightdeck",
+  sidebarCollapsed: false,
 };
 
 export interface Project {

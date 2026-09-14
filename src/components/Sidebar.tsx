@@ -9,6 +9,7 @@ import {
   Bookmark,
   LayoutTemplate,
   Rocket,
+  PanelLeftClose,
 } from "lucide-react";
 
 export function Sidebar() {
@@ -45,9 +46,16 @@ export function Sidebar() {
         <div className="p-1.5 rounded-lg bg-gradient-to-br from-accent to-accent-2 ring-1 ring-white/10">
           <Cpu size={14} className="text-[#1a1006]" />
         </div>
-        <span className="font-display text-[13px] font-semibold tracking-wide text-[#f3e9d8]">
+        <span className="font-display text-[13px] font-semibold tracking-wide text-[#f3e9d8] flex-1">
           HANGAR
         </span>
+        <button
+          onClick={() => store.updateSettings({ sidebarCollapsed: true })}
+          className="p-1 rounded-md text-[#a99a86] hover:text-accent hover:bg-white/[0.05] transition-colors"
+          title="Collapse sidebar"
+        >
+          <PanelLeftClose size={14} />
+        </button>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-6">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useWorkspaceStore, Pane, panesForProject } from "../store/workspaceStore";
 import { Sidebar } from "./Sidebar";
+import { TitleBar } from "./TitleBar";
 import { TerminalPane } from "./TerminalPane";
 import { SettingsDialog } from "./SettingsDialog";
 import { CommandPalette } from "./CommandPalette";
@@ -14,6 +15,7 @@ import {
   Settings,
   Folder,
   Search,
+  PanelLeftOpen,
 } from "lucide-react";
 
 function shellBadge(shell: string) {
@@ -189,8 +191,22 @@ export function Workspace() {
   };
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-[#0e0b08] text-[#f3e9d8] selection:bg-accent/30 antialiased">
-      <Sidebar />
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#0e0b08] text-[#f3e9d8] selection:bg-accent/30 antialiased">
+      <TitleBar />
+      <div className="flex-1 min-h-0 flex overflow-hidden">
+      {store.settings.sidebarCollapsed ? (
+        <div className="w-10 h-full shrink-0 flex flex-col items-center pt-3 gap-3 bg-[#1d1811] border-r border-white/10">
+          <button
+            onClick={() => store.updateSettings({ sidebarCollapsed: false })}
+            className="p-1.5 rounded-md text-[#a99a86] hover:text-accent hover:bg-white/[0.06] transition-colors"
+            title="Expand sidebar"
+          >
+            <PanelLeftOpen size={16} />
+          </button>
+        </div>
+      ) : (
+        <Sidebar />
+      )}
 
       <div className="flex-1 flex flex-col min-w-0 relative">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_color-mix(in_srgb,var(--color-accent)_18%,#0e0b08)_0%,_#0e0b08_60%)] opacity-70 pointer-events-none" />
@@ -478,6 +494,7 @@ export function Workspace() {
             <span>drag headers to rearrange</span>
           </span>
         </footer>
+      </div>
       </div>
     </div>
   );

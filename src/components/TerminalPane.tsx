@@ -45,6 +45,13 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
     let resizeObserver: ResizeObserver | null = null;
     let autoTagged = false;
     let runningTimeout: ReturnType<typeof setTimeout> | null = null;
+    // React 18 StrictMode double-invokes this effect (mount -> cleanup ->
+    // mount) in dev. `start()` is async and awaits before touching the DOM
+    // or spawning a PTY, so without this guard both invocations resume
+    // after their awaits and each call term.open()/spawnPty() on the same
+    // div, leaving two live xterm instances stacked in one container and a
+    // leaked orphaned PTY process.
+    let cancelled = false;
 
     const markRunning = () => {
       useWorkspaceStore.getState().setPaneRunning(paneId, true);
@@ -153,6 +160,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
         } catch {
           // ignored — proceed with whatever metrics are available
         }
+        if (cancelled) return;
 
         term.open(divRef.current!);
         fitAddon.fit();
@@ -192,6 +200,11 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
         )?.root;
         const cwd = pane?.cwd ?? paneProjectRoot ?? useWorkspaceStore.getState().activeCwd();
         const { id, shell } = await spawnPty(undefined, rows, cols, cwd);
+        if (cancelled) {
+          await killPty(id);
+          term.dispose();
+          return;
+        }
         sessionIdRef.current = id;
         useWorkspaceStore.getState().setSessionId(paneId, id, shell, cwd);
         useWorkspaceStore.getState().setActiveTerminal(id);
@@ -235,6 +248,13 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
 
         unlistenData = await unlistenDataPromise;
         unlistenExit = await unlistenExitPromise;
+        if (cancelled) {
+          unlistenData();
+          unlistenExit();
+          await killPty(id);
+          term.dispose();
+          return;
+        }
 
         unsubSettings = useWorkspaceStore.subscribe((s) => {
           const st = s.settings;
@@ -281,6 +301,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
     start();
 
     return () => {
+      cancelled = true;
       cleanup();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
