@@ -141,6 +141,75 @@ pub fn git_checkout(path: &str, branch: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn run_git(path: &str, args: &[&str]) -> Result<String, String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(path)
+        .args(args)
+        .output()
+        .map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+pub fn git_stage_all(path: &str) -> Result<(), String> {
+    run_git(path, &["add", "-A"])?;
+    Ok(())
+}
+
+pub fn git_diff_stat(path: &str) -> Result<String, String> {
+    run_git(path, &["diff", "--cached", "--stat"])
+}
+
+pub fn git_diff_staged(path: &str, max_chars: usize) -> Result<String, String> {
+    let diff = run_git(path, &["diff", "--cached", "--no-color", "-U2"])?;
+    Ok(diff.chars().take(max_chars).collect())
+}
+
+pub fn git_commit(path: &str, message: &str) -> Result<(), String> {
+    run_git(path, &["commit", "-m", message])?;
+    Ok(())
+}
+
+pub fn git_root(path: &str) -> Result<String, String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(path)
+        .arg("rev-parse")
+        .arg("--show-toplevel")
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+pub fn git_branch(path: &str) -> Result<Option<String>, String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(path)
+        .arg("branch")
+        .arg("--show-current")
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+
+    let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Ok(if branch.is_empty() {
+        None
+    } else {
+        Some(branch)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,10 +297,7 @@ mod tests {
 
     #[test]
     fn git_root_errors_outside_repo() {
-        let dir = std::env::temp_dir().join(format!(
-            "aita-norepo-{}-x",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("aita-norepo-{}-x", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         assert!(git_root(dir.to_str().unwrap()).is_err());
         let _ = fs::remove_dir_all(&dir);
@@ -426,69 +492,4 @@ mod tests {
         r.commit_all();
         assert!(git_commit(r.path(), "nothing").is_err());
     }
-}
-
-fn run_git(path: &str, args: &[&str]) -> Result<String, String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(path)
-        .args(args)
-        .output()
-        .map_err(|e| e.to_string())?;
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).to_string())
-}
-
-pub fn git_stage_all(path: &str) -> Result<(), String> {
-    run_git(path, &["add", "-A"])?;
-    Ok(())
-}
-
-pub fn git_diff_stat(path: &str) -> Result<String, String> {
-    run_git(path, &["diff", "--cached", "--stat"])
-}
-
-pub fn git_diff_staged(path: &str, max_chars: usize) -> Result<String, String> {
-    let diff = run_git(path, &["diff", "--cached", "--no-color", "-U2"])?;
-    Ok(diff.chars().take(max_chars).collect())
-}
-
-pub fn git_commit(path: &str, message: &str) -> Result<(), String> {
-    run_git(path, &["commit", "-m", message])?;
-    Ok(())
-}
-
-pub fn git_root(path: &str) -> Result<String, String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(path)
-        .arg("rev-parse")
-        .arg("--show-toplevel")
-        .output()
-        .map_err(|e| e.to_string())?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-}
-
-pub fn git_branch(path: &str) -> Result<Option<String>, String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(path)
-        .arg("branch")
-        .arg("--show-current")
-        .output()
-        .map_err(|e| e.to_string())?;
-
-    if !output.status.success() {
-        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
-    }
-
-    let branch = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    Ok(if branch.is_empty() { None } else { Some(branch) })
 }

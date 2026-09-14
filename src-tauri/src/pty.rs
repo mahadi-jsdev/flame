@@ -131,7 +131,10 @@ impl PtyManager {
             }
         });
 
-        Ok(PtySpawnResult { id, shell: shell_name })
+        Ok(PtySpawnResult {
+            id,
+            shell: shell_name,
+        })
     }
 
     pub fn write(&self, id: &str, data: &str) -> Result<(), Box<dyn std::error::Error>> {

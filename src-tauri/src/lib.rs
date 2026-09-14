@@ -16,7 +16,9 @@ fn spawn_pty(
     cols: u16,
     cwd: Option<String>,
 ) -> Result<PtySpawnResult, String> {
-    state.spawn(shell, rows, cols, cwd).map_err(|e| e.to_string())
+    state
+        .spawn(shell, rows, cols, cwd)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -80,10 +82,7 @@ fn delete_api_key_cmd() -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn git_auto_commit_cmd(
-    path: String,
-    model: Option<String>,
-) -> Result<String, String> {
+async fn git_auto_commit_cmd(path: String, model: Option<String>) -> Result<String, String> {
     let api_key = secrets::get_api_key()
         .filter(|k| !k.trim().is_empty())
         .or_else(|| std::env::var("OPENAI_API_KEY").ok())
@@ -95,7 +94,9 @@ async fn git_auto_commit_cmd(
         return Err("nothing to commit".into());
     }
     let diff = git::git_diff_staged(&path, 12_000)?;
-    let model = model.filter(|m| !m.trim().is_empty()).unwrap_or_else(|| "gpt-4o-mini".into());
+    let model = model
+        .filter(|m| !m.trim().is_empty())
+        .unwrap_or_else(|| "gpt-4o-mini".into());
     let message = openai::commit_message(&stat, &diff, &api_key, &model).await?;
     git::git_commit(&path, &message)?;
     Ok(message)

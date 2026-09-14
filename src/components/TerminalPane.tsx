@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
+import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import {
   killPty,
@@ -187,6 +188,14 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
     term.loadAddon(searchAddon);
     searchAddonRef.current = searchAddon;
 
+    term.loadAddon(
+      new WebLinksAddon((_event, uri) => {
+        import("@tauri-apps/plugin-opener")
+          .then((mod) => mod.openUrl(uri))
+          .catch(() => window.open(uri, "_blank", "noopener,noreferrer"));
+      }),
+    );
+
     // @xterm/xterm ships no accelerated renderer of its own — without this,
     // every glyph is a plain styled DOM <span>, which renders noticeably
     // blurrier/softer than a GPU-rendered glyph atlas. Falls back to that
@@ -271,6 +280,27 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
           const ctrlOrCmd = e.ctrlKey || e.metaKey;
           if (ctrlOrCmd && e.key.toLowerCase() === "f") {
             setSearchOpen(true);
+            return false;
+          }
+          // Plain Ctrl+C/Ctrl+V stay reserved for SIGINT and literal paste —
+          // Ctrl+Shift+C/V is the conventional Linux-terminal copy/paste.
+          if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === "c") {
+            const selection = term.getSelection();
+            if (selection) {
+              navigator.clipboard?.writeText(selection).catch(() => {});
+              return false;
+            }
+            return true;
+          }
+          if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === "v") {
+            navigator.clipboard
+              ?.readText()
+              .then((text) => {
+                if (text && sessionIdRef.current) {
+                  writePty(sessionIdRef.current, text).catch(console.error);
+                }
+              })
+              .catch(() => {});
             return false;
           }
           return true;

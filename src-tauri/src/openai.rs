@@ -89,7 +89,10 @@ pub async fn commit_message(
         if let Ok(err) = serde_json::from_str::<ErrorResponse>(&text) {
             return Err(format!("OpenAI error: {}", err.error.message));
         }
-        return Err(format!("OpenAI HTTP {status}: {}", text.chars().take(200).collect::<String>()));
+        return Err(format!(
+            "OpenAI HTTP {status}: {}",
+            text.chars().take(200).collect::<String>()
+        ));
     }
 
     let parsed: ChatResponse =
