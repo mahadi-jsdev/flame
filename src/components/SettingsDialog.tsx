@@ -16,9 +16,9 @@ function Row({
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <div className="min-w-0">
-        <div className="text-xs font-medium text-slate-200">{label}</div>
+        <div className="text-xs font-medium text-[#f3e9d8]">{label}</div>
         {hint && (
-          <div className="text-[10px] text-slate-500 mt-0.5">{hint}</div>
+          <div className="text-[10px] text-[#8a7c68] mt-0.5">{hint}</div>
         )}
       </div>
       <div className="shrink-0">{children}</div>
@@ -36,7 +36,7 @@ function Segmented<T extends string | number>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="flex p-0.5 rounded-lg bg-slate-950/80 border border-white/10">
+    <div className="flex p-0.5 rounded-lg bg-[#0e0b08]/80 border border-white/10">
       {options.map((o) => (
         <button
           key={String(o.value)}
@@ -44,7 +44,7 @@ function Segmented<T extends string | number>({
           className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-all ${
             o.value === value
               ? "bg-accent/15 text-accent shadow-sm"
-              : "text-slate-400 hover:text-slate-200"
+              : "text-[#a99a86] hover:text-[#f3e9d8]"
           }`}
         >
           {o.label}
@@ -106,17 +106,17 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="w-[440px] max-h-[80%] flex flex-col rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/60 ring-1 ring-accent/10 animate-slide-up overflow-hidden"
+        className="w-[560px] max-h-[80%] flex flex-col rounded-2xl border border-white/15 bg-[#1d1811]/90 backdrop-blur-xl shadow-2xl shadow-black/60 ring-1 ring-accent/10 animate-slide-up overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="h-11 shrink-0 flex items-center justify-between px-4 border-b border-white/10">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+          <div className="flex items-center gap-2 text-xs font-semibold text-[#f3e9d8]">
             <Settings2 size={13} className="text-accent" />
             Settings
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md text-slate-500 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
+            className="p-1.5 rounded-md text-[#8a7c68] hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
             title="Close"
           >
             <X size={13} />
@@ -135,7 +135,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 onChange={(e) => update({ fontSize: Number(e.target.value) })}
                 className="w-24 accent-accent"
               />
-              <span className="w-6 text-right text-[11px] font-mono text-slate-300">
+              <span className="w-6 text-right text-[11px] font-mono text-[#d9cbb5]">
                 {settings.fontSize}
               </span>
             </div>
@@ -157,7 +157,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <button
               onClick={() => update({ cursorBlink: !settings.cursorBlink })}
               className={`relative w-9 h-5 rounded-full transition-colors ${
-                settings.cursorBlink ? "bg-accent/40" : "bg-slate-700"
+                settings.cursorBlink ? "bg-accent/40" : "bg-[#352c1e]"
               }`}
               title="Toggle cursor blink"
             >
@@ -199,7 +199,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <button
               onClick={() => update({ notifications: !settings.notifications })}
               className={`relative w-9 h-5 rounded-full transition-colors ${
-                settings.notifications ? "bg-accent/40" : "bg-slate-700"
+                settings.notifications ? "bg-accent/40" : "bg-[#352c1e]"
               }`}
               title="Toggle notifications"
             >
@@ -218,7 +218,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             <button
               onClick={() => update({ restoreSession: !settings.restoreSession })}
               className={`relative w-9 h-5 rounded-full transition-colors ${
-                settings.restoreSession ? "bg-accent/40" : "bg-slate-700"
+                settings.restoreSession ? "bg-accent/40" : "bg-[#352c1e]"
               }`}
               title="Toggle session restore"
             >
@@ -247,7 +247,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           >
             <div className="flex flex-col items-end gap-1.5">
               {keyConfigured === null ? (
-                <Loader2 size={13} className="animate-spin text-slate-500" />
+                <Loader2 size={13} className="animate-spin text-[#8a7c68]" />
               ) : keyConfigured && !editingKey ? (
                 <div className="flex items-center gap-1.5">
                   <span className="inline-flex items-center gap-1 text-[11px] text-emerald-300">
@@ -255,14 +255,14 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   </span>
                   <button
                     onClick={() => setEditingKey(true)}
-                    className="text-[10px] px-2 py-1 rounded-md bg-slate-800/80 border border-white/10 text-slate-300 hover:text-accent hover:border-accent/30 transition-colors"
+                    className="text-[10px] px-2 py-1 rounded-md bg-[#2a2318]/80 border border-white/10 text-[#d9cbb5] hover:text-accent hover:border-accent/30 transition-colors"
                   >
                     Change
                   </button>
                   <button
                     onClick={removeKey}
                     disabled={savingKey}
-                    className="p-1.5 rounded-md text-slate-500 hover:text-rose-300 hover:bg-rose-500/20 transition-colors disabled:opacity-50"
+                    className="p-1.5 rounded-md text-[#8a7c68] hover:text-rose-300 hover:bg-rose-500/20 transition-colors disabled:opacity-50"
                     title="Remove key from keychain"
                   >
                     <Trash2 size={12} />
@@ -277,7 +277,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     placeholder="sk-..."
                     spellCheck={false}
                     autoComplete="off"
-                    className="w-44 bg-slate-950/80 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-slate-200 placeholder:text-slate-600 outline-none focus:border-accent/40"
+                    className="w-56 bg-[#0e0b08]/80 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-[#f3e9d8] placeholder:text-[#6f6455] outline-none focus:border-accent/40"
                   />
                   <button
                     onClick={saveKey}
@@ -298,7 +298,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               onChange={(e) => update({ commitModel: e.target.value })}
               placeholder="gpt-4o-mini"
               spellCheck={false}
-              className="w-48 bg-slate-950/80 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-slate-200 placeholder:text-slate-600 outline-none focus:border-accent/40"
+              className="w-60 bg-[#0e0b08]/80 border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-[#f3e9d8] placeholder:text-[#6f6455] outline-none focus:border-accent/40"
             />
           </Row>
         </div>

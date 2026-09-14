@@ -179,12 +179,12 @@ export function ProjectPanel() {
     <div className="flex-1 min-h-0 flex flex-col">
       <div className="shrink-0 px-4 py-4 border-b border-white/10 space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
+          <span className="text-xs text-[#8a7c68] uppercase tracking-wider font-semibold">
             Projects
           </span>
           <button
             onClick={handleAddProject}
-            className="p-1 rounded-md text-slate-400 hover:text-accent hover:bg-slate-800/60 transition-all"
+            className="p-1 rounded-md text-[#a99a86] hover:text-accent hover:bg-[#2a2318]/60 transition-all"
             title="Add project"
           >
             <Plus size={13} />
@@ -193,8 +193,8 @@ export function ProjectPanel() {
 
         <div className="space-y-1.5 max-h-32 overflow-auto pr-0.5">
           {workspace.projects.length === 0 ? (
-            <div className="text-center py-4 rounded-xl border border-dashed border-white/10 bg-slate-900/40">
-              <p className="text-xs text-slate-500 mb-2">No projects yet</p>
+            <div className="text-center py-4 rounded-xl border border-dashed border-white/10 bg-[#1d1811]/40">
+              <p className="text-xs text-[#8a7c68] mb-2">No projects yet</p>
               <button
                 onClick={handleAddProject}
                 className="text-xs px-2.5 py-1.5 rounded-md bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 transition-colors"
@@ -212,13 +212,13 @@ export function ProjectPanel() {
                   className={`group relative flex items-center justify-between pl-3.5 pr-2.5 py-2.5 rounded-lg text-sm cursor-pointer transition-all duration-200 border ${
                     isActive
                       ? "bg-accent/10 border-accent/30 text-accent"
-                      : "bg-slate-900/40 border-transparent text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+                      : "bg-[#1d1811]/40 border-transparent text-[#a99a86] hover:bg-[#2a2318]/60 hover:text-[#f3e9d8]"
                   }`}
                 >
                   <span className="flex items-center gap-2.5 truncate">
                     <Folder
                       size={14}
-                      className={isActive ? "text-accent" : "text-slate-500"}
+                      className={isActive ? "text-accent" : "text-[#8a7c68]"}
                     />
                     <span className="truncate font-medium">
                       {projectName(p.root)}
@@ -230,7 +230,7 @@ export function ProjectPanel() {
                         e.stopPropagation();
                         store.removeProject(p.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-500 hover:text-rose-300 hover:bg-rose-500/20 transition-all"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-[#8a7c68] hover:text-rose-300 hover:bg-rose-500/20 transition-all"
                       title="Remove project"
                     >
                       <X size={12} />
@@ -252,7 +252,7 @@ export function ProjectPanel() {
             <div className="flex items-center justify-between">
               <button
                 onClick={toggleBranches}
-                className="flex items-center gap-2 min-w-0 text-sm text-slate-300 hover:text-accent transition-colors"
+                className="flex items-center gap-2 min-w-0 text-sm text-[#d9cbb5] hover:text-accent transition-colors"
                 title="Switch branch"
               >
                 <GitBranch size={14} className="shrink-0 text-accent-2" />
@@ -261,7 +261,7 @@ export function ProjectPanel() {
                 </span>
                 <ChevronDown
                   size={12}
-                  className={`shrink-0 text-slate-500 transition-transform ${
+                  className={`shrink-0 text-[#8a7c68] transition-transform ${
                     showBranches ? "rotate-180" : ""
                   }`}
                 />
@@ -270,7 +270,7 @@ export function ProjectPanel() {
                 <button
                   onClick={autoCommit}
                   disabled={aiCommitting}
-                  className="p-1.5 rounded-md text-slate-400 hover:text-accent-2 hover:bg-slate-800/60 transition-all disabled:opacity-50"
+                  className="p-1.5 rounded-md text-[#a99a86] hover:text-accent-2 hover:bg-[#2a2318]/60 transition-all disabled:opacity-50"
                   title="AI auto-commit (stages all changes)"
                 >
                   {aiCommitting ? (
@@ -284,7 +284,7 @@ export function ProjectPanel() {
                 </button>
                 <button
                   onClick={() => openLazygit(repoRoot ?? project.root)}
-                  className="p-1.5 rounded-md text-slate-400 hover:text-accent hover:bg-slate-800/60 transition-all"
+                  className="p-1.5 rounded-md text-[#a99a86] hover:text-accent hover:bg-[#2a2318]/60 transition-all"
                   title="Open lazygit in a new terminal"
                 >
                   <SquareTerminal size={13} />
@@ -292,7 +292,7 @@ export function ProjectPanel() {
                 <button
                   onClick={refreshGit}
                   disabled={loading}
-                  className="p-1.5 rounded-md text-slate-400 hover:text-accent hover:bg-slate-800/60 transition-all disabled:opacity-50"
+                  className="p-1.5 rounded-md text-[#a99a86] hover:text-accent hover:bg-[#2a2318]/60 transition-all disabled:opacity-50"
                   title="Refresh git status"
                 >
                   <RefreshCw
@@ -304,9 +304,9 @@ export function ProjectPanel() {
             </div>
 
             {showBranches && (
-              <div className="rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden animate-pop-in shadow-lg shadow-black/30">
+              <div className="rounded-lg border border-white/10 bg-[#1d1811]/60 overflow-hidden animate-pop-in shadow-lg shadow-black/30">
                 {branches.length === 0 ? (
-                  <div className="px-3 py-2 text-xs text-slate-500">
+                  <div className="px-3 py-2 text-xs text-[#8a7c68]">
                     No local branches
                   </div>
                 ) : (
@@ -317,7 +317,7 @@ export function ProjectPanel() {
                       className={`flex items-center gap-2 px-3 py-2 text-xs cursor-pointer transition-colors ${
                         b === branch
                           ? "bg-accent/10 text-accent"
-                          : "text-slate-300 hover:bg-slate-800/60"
+                          : "text-[#d9cbb5] hover:bg-[#2a2318]/60"
                       }`}
                     >
                       <Check
@@ -347,7 +347,7 @@ export function ProjectPanel() {
             )}
 
             {!error && entries.length === 0 && !loading && (
-              <div className="text-center py-8 text-slate-500 text-xs">
+              <div className="text-center py-8 text-[#8a7c68] text-xs">
                 No changes
               </div>
             )}
@@ -365,14 +365,14 @@ export function ProjectPanel() {
             )}
           </div>
         ) : (
-          <div className="h-40 flex flex-col items-center justify-center text-slate-500 text-center px-4">
-            <FolderOpen size={28} className="mb-2 text-slate-700" />
+          <div className="h-40 flex flex-col items-center justify-center text-[#8a7c68] text-center px-4">
+            <FolderOpen size={28} className="mb-2 text-[#352c1e]" />
             <p className="text-xs">Select or add a project to see changes</p>
           </div>
         )}
       </div>
 
-      <div className="h-8 shrink-0 flex items-center px-4 text-xs text-slate-600 border-t border-white/10">
+      <div className="h-8 shrink-0 flex items-center px-4 text-xs text-[#6f6455] border-t border-white/10">
         {entries.length} change{entries.length === 1 ? "" : "s"}
       </div>
     </div>
@@ -400,13 +400,13 @@ function DirTree({
           <div key={d.path}>
             <div
               onClick={() => onToggle(d.path)}
-              className="flex items-center gap-1.5 py-1.5 pr-2 rounded-md text-xs text-slate-400 hover:bg-slate-800/60 hover:text-slate-200 cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 py-1.5 pr-2 rounded-md text-xs text-[#a99a86] hover:bg-[#2a2318]/60 hover:text-[#f3e9d8] cursor-pointer transition-colors"
               style={{ paddingLeft: `${depth * 14 + 4}px` }}
             >
               {isCollapsed ? (
-                <ChevronRight size={12} className="shrink-0 text-slate-500" />
+                <ChevronRight size={12} className="shrink-0 text-[#8a7c68]" />
               ) : (
-                <ChevronDown size={12} className="shrink-0 text-slate-500" />
+                <ChevronDown size={12} className="shrink-0 text-[#8a7c68]" />
               )}
               <Folder size={13} className="shrink-0 text-accent-2" />
               <span className="truncate">{d.name}</span>
@@ -429,15 +429,15 @@ function DirTree({
           onClick={() =>
             openGitDiffInTerminal(f.entry.path, f.entry.status, root)
           }
-          className="flex items-center gap-2 py-1.5 pr-2 rounded-md hover:bg-slate-800/60 transition-colors cursor-pointer"
+          className="flex items-center gap-2 py-1.5 pr-2 rounded-md hover:bg-[#2a2318]/60 transition-colors cursor-pointer"
           style={{ paddingLeft: `${depth * 14 + 21}px` }}
           title="Open git diff"
         >
           <File size={13} className="shrink-0 text-accent" />
-          <span className="text-xs text-slate-300 truncate flex-1 min-w-0">
+          <span className="text-xs text-[#d9cbb5] truncate flex-1 min-w-0">
             {f.entry.original_path ? (
               <>
-                <span className="text-slate-500 line-through">
+                <span className="text-[#8a7c68] line-through">
                   {f.entry.original_path.split("/").pop()}
                 </span>
                 {" → "}

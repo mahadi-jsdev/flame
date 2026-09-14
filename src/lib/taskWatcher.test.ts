@@ -42,7 +42,7 @@ describe("agentName", () => {
 
 describe("agentColor", () => {
   it("returns a color for a known agent", () => {
-    expect(agentColor("claude -p 'fix bug'")).toBe("#22d3ee");
+    expect(agentColor("claude -p 'fix bug'")).toBe("#ffb238");
   });
 
   it("returns null when no agent is detected", () => {

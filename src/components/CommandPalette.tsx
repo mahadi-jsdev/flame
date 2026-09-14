@@ -160,11 +160,11 @@ export function CommandPalette({
       onClick={onClose}
     >
       <div
-        className="w-[420px] max-h-[60%] flex flex-col rounded-2xl border border-white/15 bg-slate-900/90 backdrop-blur-xl shadow-2xl shadow-black/60 ring-1 ring-accent/10 animate-slide-up overflow-hidden"
+        className="w-[420px] max-h-[60%] flex flex-col rounded-2xl border border-white/15 bg-[#1d1811]/90 backdrop-blur-xl shadow-2xl shadow-black/60 ring-1 ring-accent/10 animate-slide-up overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="h-11 shrink-0 flex items-center gap-2 px-3 border-b border-white/10">
-          <Search size={14} className="text-slate-500 shrink-0" />
+          <Search size={14} className="text-[#8a7c68] shrink-0" />
           <input
             ref={inputRef}
             value={query}
@@ -187,13 +187,13 @@ export function CommandPalette({
             }}
             placeholder="Type a command…"
             spellCheck={false}
-            className="flex-1 bg-transparent text-sm text-slate-200 placeholder:text-slate-600 outline-none"
+            className="flex-1 bg-transparent text-sm text-[#f3e9d8] placeholder:text-[#6f6455] outline-none"
           />
         </div>
 
         <div className="flex-1 min-h-0 overflow-auto py-1">
           {filtered.length === 0 ? (
-            <div className="px-4 py-6 text-center text-xs text-slate-500">
+            <div className="px-4 py-6 text-center text-xs text-[#8a7c68]">
               No matching commands
             </div>
           ) : (
@@ -205,15 +205,15 @@ export function CommandPalette({
                 className={`flex items-center gap-2.5 px-3.5 py-2 mx-1 rounded-lg cursor-pointer text-xs transition-colors ${
                   i === selected
                     ? "bg-accent/10 text-accent"
-                    : "text-slate-300 hover:bg-slate-800/60"
+                    : "text-[#d9cbb5] hover:bg-[#2a2318]/60"
                 }`}
               >
-                <span className={i === selected ? "text-accent" : "text-slate-500"}>
+                <span className={i === selected ? "text-accent" : "text-[#8a7c68]"}>
                   {action.icon}
                 </span>
                 <span className="truncate flex-1">{action.label}</span>
                 {action.hint && (
-                  <span className="text-[10px] text-slate-500 shrink-0">{action.hint}</span>
+                  <span className="text-[10px] text-[#8a7c68] shrink-0">{action.hint}</span>
                 )}
               </div>
             ))

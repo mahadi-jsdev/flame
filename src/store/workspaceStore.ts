@@ -22,7 +22,7 @@ export const defaultSettings: AppSettings = {
   commitModel: "gpt-4o-mini",
   notifications: true,
   restoreSession: true,
-  theme: "aurora",
+  theme: "flightdeck",
 };
 
 export interface Project {

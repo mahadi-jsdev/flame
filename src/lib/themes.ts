@@ -12,6 +12,33 @@ export interface TerminalTheme {
 }
 
 export const THEMES: Record<string, TerminalTheme> = {
+  flightdeck: {
+    label: "Flight Deck",
+    ui: { accent: "#ffb238", accent2: "#b5762a" },
+    theme: {
+      background: "#0e0b08",
+      foreground: "#f3e9d8",
+      cursor: "#ffb238",
+      selectionBackground: "#4a3418",
+      selectionForeground: "#ffffff",
+      black: "#1a1510",
+      red: "#ff6b52",
+      green: "#8fcf8a",
+      yellow: "#ffb238",
+      blue: "#8bb4e8",
+      magenta: "#c9a877",
+      cyan: "#7ec9c9",
+      white: "#ede4d3",
+      brightBlack: "#4b3a2c",
+      brightRed: "#ff8a75",
+      brightGreen: "#b5e6ae",
+      brightYellow: "#ffcb6b",
+      brightBlue: "#a9c8ef",
+      brightMagenta: "#e0c8a0",
+      brightCyan: "#9edcdc",
+      brightWhite: "#fff8ec",
+    },
+  },
   aurora: {
     label: "Aurora",
     ui: { accent: "#22d3ee", accent2: "#8b5cf6" },
@@ -122,7 +149,7 @@ export const THEMES: Record<string, TerminalTheme> = {
   },
 };
 
-export const DEFAULT_THEME = "aurora";
+export const DEFAULT_THEME = "flightdeck";
 
 export function resolveTheme(name: string): ITheme {
   return (THEMES[name] ?? THEMES[DEFAULT_THEME]).theme;

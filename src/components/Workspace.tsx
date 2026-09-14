@@ -7,7 +7,6 @@ import { CommandPalette } from "./CommandPalette";
 import {
   Plus,
   X,
-  Terminal,
   Command,
   Cpu,
   GripVertical,
@@ -49,13 +48,13 @@ function getGridLayout(count: number) {
 
 const PANE_COLOR_PALETTE: (string | undefined)[] = [
   undefined,
-  "#22d3ee",
-  "#34d399",
-  "#facc15",
-  "#f87171",
-  "#c084fc",
-  "#60a5fa",
-  "#fb923c",
+  "#ffb238",
+  "#8fcf8a",
+  "#ffcb6b",
+  "#ff6b52",
+  "#c9a877",
+  "#8bb4e8",
+  "#e0894a",
 ];
 
 export function Workspace() {
@@ -167,23 +166,30 @@ export function Workspace() {
   };
 
   return (
-    <div className="h-screen w-screen flex overflow-hidden bg-[#05070a] text-slate-100 selection:bg-accent/30 font-sans antialiased">
+    <div className="h-screen w-screen flex overflow-hidden bg-[#0e0b08] text-[#f3e9d8] selection:bg-accent/30 antialiased">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 relative">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_color-mix(in_srgb,var(--color-accent)_35%,#05070a)_0%,_#05070a_60%)] opacity-60 pointer-events-none" />
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_right,_color-mix(in_srgb,var(--color-accent-2)_35%,#05070a)_0%,_transparent_55%)] opacity-40 pointer-events-none" />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_color-mix(in_srgb,var(--color-accent)_18%,#0e0b08)_0%,_#0e0b08_60%)] opacity-70 pointer-events-none" />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_right,_color-mix(in_srgb,var(--color-accent-2)_18%,#0e0b08)_0%,_transparent_55%)] opacity-50 pointer-events-none" />
+        <div
+          className="absolute inset-0 -z-10 opacity-[0.05] pointer-events-none"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(0deg, rgba(244,225,190,.4) 0 1px, transparent 1px 28px), repeating-linear-gradient(90deg, rgba(244,225,190,.4) 0 1px, transparent 1px 28px)",
+          }}
+        />
 
-        <header className="h-14 shrink-0 px-5 flex items-center justify-between bg-slate-950/60 backdrop-blur-xl border-b border-white/10">
+        <header className="h-14 shrink-0 px-5 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-gradient-to-br from-accent to-accent-2 shadow-lg shadow-accent/20 ring-1 ring-white/20">
-              <Cpu size={18} className="text-white" />
+            <div className="p-2 rounded-xl bg-gradient-to-br from-accent to-accent-2 ring-1 ring-white/10">
+              <Cpu size={18} className="text-[#1a1006]" />
             </div>
             <div className="flex flex-col leading-tight">
-              <span className="text-sm font-bold tracking-tight bg-gradient-to-r from-accent to-accent-2 bg-clip-text text-transparent">
+              <span className="font-display text-sm font-semibold tracking-wide text-[#f3e9d8]">
                 {label}
               </span>
-              <span className="text-[10px] text-slate-400 mt-0.5">
+              <span className="text-[10px] font-mono text-[#a99a86] mt-0.5">
                 {count} terminal{count === 1 ? "" : "s"} · {allCount} workspace
                 {allCount === 1 ? "" : "s"}
               </span>
@@ -193,32 +199,29 @@ export function Workspace() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowPalette(true)}
-              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/60 hover:bg-slate-700/80 border border-white/10 hover:border-accent/40 transition-all text-xs font-medium text-slate-400 hover:text-slate-200"
+              className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-accent/40 transition-colors text-xs font-medium text-[#a99a86] hover:text-[#f3e9d8]"
               title="Command palette"
             >
               <Command size={13} />
               <span>Commands</span>
-              <kbd className="text-[10px] font-mono text-slate-500 bg-slate-900/80 px-1.5 py-0.5 rounded border border-white/5">
+              <kbd className="text-[10px] font-mono text-[#6f6455] bg-black/30 px-1.5 py-0.5 rounded border border-white/10">
                 ⌘K
               </kbd>
             </button>
             <button
               onClick={() => setShowSettings(true)}
-              className="p-2 rounded-lg text-slate-400 hover:text-accent hover:bg-slate-800/60 border border-transparent hover:border-white/10 transition-all"
+              className="p-2 rounded-lg text-[#a99a86] hover:text-accent hover:bg-white/[0.05] border border-transparent hover:border-white/10 transition-colors"
               title="Settings"
             >
               <Settings size={15} />
             </button>
             <button
               onClick={() => store.addPane()}
-              className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 hover:border-accent/40 transition-all hover:shadow-[0_0_20px_color-mix(in_srgb,var(--color-accent)_15%,transparent)] text-xs font-medium"
+              className="group flex items-center gap-2 px-3 py-1.5 rounded-lg bg-accent border border-accent hover:bg-[#ffbe57] hover:border-[#ffbe57] transition-colors text-xs font-semibold text-[#1a1006]"
             >
-              <Plus
-                size={14}
-                className="text-slate-400 group-hover:text-accent transition-colors"
-              />
+              <Plus size={14} />
               <span>New Terminal</span>
-              <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-slate-500 bg-slate-900/80 px-1.5 py-0.5 rounded border border-white/5 group-hover:border-accent/20 group-hover:text-slate-400 transition-colors">
+              <kbd className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded border border-[#1a1006]/25 text-[#1a1006]/70">
                 <Command size={10} />
                 <span>+</span>
                 <span>Shift</span>
@@ -262,12 +265,12 @@ export function Workspace() {
                   setDragId(null);
                   setDropTargetId(null);
                 }}
-                className={`terminal-card group min-h-0 h-full w-full flex flex-col rounded-2xl border backdrop-blur-sm overflow-hidden transition-all duration-300 ${
+                className={`terminal-card group min-h-0 h-full w-full flex flex-col rounded-2xl border overflow-hidden transition-colors duration-200 bg-[#1d1811]/70 ${
                   isDropTarget
-                    ? "border-accent/60 shadow-[0_0_30px_color-mix(in_srgb,var(--color-accent)_20%,transparent)] bg-slate-900/70"
+                    ? "border-accent/60"
                     : isActive
-                      ? "border-accent/40 bg-slate-900/70 shadow-2xl shadow-accent/10 shadow-black/40"
-                      : "border-white/10 bg-slate-900/60 shadow-2xl shadow-black/40 hover:border-accent/20 hover:shadow-[0_0_30px_color-mix(in_srgb,var(--color-accent)_8%,transparent)]"
+                      ? "border-accent/40"
+                      : "border-white/10 hover:border-white/20"
                 } ${isDragging ? "opacity-40 scale-[0.99]" : ""}`}
               >
                 <div
@@ -282,28 +285,28 @@ export function Workspace() {
                     setDropTargetId(null);
                   }}
                   className={`h-10 shrink-0 flex items-center justify-between px-3 border-b transition-colors ${
-                    isActive
-                      ? "bg-slate-900/90 border-accent/20"
-                      : "bg-slate-900/80 border-white/10"
+                    isActive ? "border-white/10 bg-white/[0.02]" : "border-white/10"
                   } ${count > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
                   title={count > 1 ? "Drag to rearrange" : undefined}
                 >
-                  <div className="flex items-center gap-2 text-xs font-medium text-slate-300 min-w-0">
+                  <div className="flex items-center gap-2 text-xs font-medium min-w-0">
                     {count > 1 && (
                       <GripVertical
                         size={12}
-                        className="shrink-0 text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="shrink-0 text-[#6f6455] opacity-0 group-hover:opacity-100 transition-opacity"
                       />
                     )}
+                    <span
+                      className={`shrink-0 w-1.5 h-1.5 rounded-full ${
+                        isActive ? "bg-accent animate-pulse-soft" : "bg-[#6f6455]"
+                      }`}
+                      style={isActive ? { boxShadow: "0 0 6px 1px var(--color-accent)" } : undefined}
+                    />
                     <button
                       onClick={() => cyclePaneColor(pane)}
-                      className="shrink-0 w-2.5 h-2.5 rounded-full border border-white/20 transition-transform hover:scale-125"
+                      className="shrink-0 w-2 h-2 rounded-sm border border-white/20 transition-transform hover:scale-125"
                       style={{ backgroundColor: pane.color ?? "transparent" }}
                       title="Click to cycle tag color"
-                    />
-                    <Terminal
-                      size={13}
-                      className={isActive ? "text-accent" : "text-slate-500"}
                     />
                     {isEditing ? (
                       <input
@@ -317,11 +320,12 @@ export function Workspace() {
                           if (e.key === "Escape") setEditingPaneId(null);
                         }}
                         onBlur={commitRenamePane}
-                        className="min-w-0 w-24 bg-slate-900/80 border border-accent/40 rounded px-1 py-0.5 text-xs text-accent outline-none"
+                        className="min-w-0 w-24 bg-black/30 border border-accent/40 rounded px-1 py-0.5 font-mono text-xs text-accent outline-none"
                       />
                     ) : (
                       <span
-                        className="truncate"
+                        className="font-mono font-semibold truncate"
+                        style={{ color: pane.color ?? "#f3e9d8" }}
                         onDoubleClick={() => startRenamePane(pane, index)}
                         title="Double-click to rename"
                       >
@@ -338,7 +342,7 @@ export function Workspace() {
                     )}
                     {pane.cwd && (
                       <span
-                        className="hidden md:inline-flex items-center gap-1 text-[10px] text-slate-500 font-mono max-w-[160px] min-w-0"
+                        className="hidden md:inline-flex items-center gap-1 text-[10px] text-[#6f6455] font-mono max-w-[160px] min-w-0"
                         title={pane.cwd}
                       >
                         <Folder size={10} className="shrink-0" />
@@ -346,25 +350,20 @@ export function Workspace() {
                       </span>
                     )}
                     {isActive && (
-                      <span className="ml-1 inline-flex items-center gap-1.5 pl-1.5 pr-2 py-0.5 rounded-full bg-accent/10 border border-accent/20 text-[10px] text-accent">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_8px_color-mix(in_srgb,var(--color-accent)_60%,transparent)] animate-pulse-soft" />
-                        Active
+                      <span className="ml-1 text-[9.5px] font-mono uppercase tracking-wider text-accent">
+                        active
                       </span>
                     )}
                   </div>
                   <button
                     onClick={() => store.removePane(pane.id)}
-                    className="p-1.5 rounded-md text-slate-500 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
+                    className="p-1.5 rounded-md text-[#6f6455] hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
                     title="Close terminal"
                   >
                     <X size={13} />
                   </button>
                 </div>
-                <div
-                  className={`flex-1 min-h-0 relative bg-[#080c14] transition-opacity ${
-                    isActive ? "opacity-100" : "opacity-90"
-                  }`}
-                >
+                <div className="flex-1 min-h-0 relative bg-[#0e0b08]">
                   <TerminalPane paneId={pane.id} />
                 </div>
               </div>
@@ -377,11 +376,11 @@ export function Workspace() {
             key={pane.id}
             className="absolute inset-0 z-20 p-3 bg-black/70 backdrop-blur-sm animate-fade-in"
           >
-            <div className="h-full w-full flex flex-col rounded-2xl border border-white/15 bg-slate-900/80 shadow-2xl shadow-black/60 overflow-hidden animate-slide-up ring-1 ring-accent/10">
-              <div className="h-10 shrink-0 flex items-center justify-between px-4 bg-slate-900/80 border-b border-white/10">
-                <div className="flex items-center gap-2 min-w-0 text-xs font-medium text-slate-300">
-                  <Terminal size={13} className="shrink-0 text-accent" />
-                  <span className="truncate">{pane.title ?? "Terminal"}</span>
+            <div className="h-full w-full flex flex-col rounded-2xl border border-white/15 bg-[#1d1811] overflow-hidden animate-slide-up">
+              <div className="h-10 shrink-0 flex items-center justify-between px-4 border-b border-white/10">
+                <div className="flex items-center gap-2 min-w-0 text-xs font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                  <span className="font-mono font-semibold truncate">{pane.title ?? "Terminal"}</span>
                   {pane.shell && (
                     <span
                       className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-medium border ${shellBadge(pane.shell)}`}
@@ -393,14 +392,14 @@ export function Workspace() {
                 </div>
                 <button
                   onClick={() => store.removePane(pane.id)}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-md text-slate-500 hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[#6f6455] hover:bg-rose-500/20 hover:text-rose-300 transition-colors"
                   title="Close"
                 >
                   <X size={13} />
                   <span className="text-[10px]">Close</span>
                 </button>
               </div>
-              <div className="flex-1 min-h-0 relative bg-[#080c14]">
+              <div className="flex-1 min-h-0 relative bg-[#0e0b08]">
                 <TerminalPane paneId={pane.id} />
               </div>
             </div>
@@ -418,29 +417,31 @@ export function Workspace() {
           />
         )}
 
-        <footer className="h-7 shrink-0 px-5 flex items-center justify-between text-[11px] text-slate-500 bg-slate-950/60 backdrop-blur border-t border-white/10">
+        <footer className="h-7 shrink-0 px-5 flex items-center justify-between text-[11px] font-mono text-[#6f6455] border-t border-white/10">
           <span className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
-            PTY engine ready
+            <span
+              className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse-soft"
+              style={{ boxShadow: "0 0 6px 1px var(--color-accent)" }}
+            />
+            SYSTEM NOMINAL
             {activeNumber > 0 && (
-              <span className="ml-2 inline-flex items-center gap-1.5 text-slate-400">
-                <Terminal size={12} className="text-accent" />
-                Terminal {activeNumber} active
+              <span className="ml-2 inline-flex items-center gap-1.5 text-[#a99a86]">
+                · terminal {activeNumber} active
               </span>
             )}
           </span>
           <span className="hidden sm:inline-flex items-center gap-1.5">
-            <kbd className="px-1.5 py-0.5 rounded bg-slate-900/80 border border-white/10 font-mono text-[10px]">
-              ⌃/⌘ K
+            <kbd className="px-1.5 py-0.5 rounded bg-black/30 border border-white/10 text-[10px]">
+              ⌘K
             </kbd>
-            <span className="text-slate-600">commands</span>
-            <span className="text-slate-700 mx-1">·</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-slate-900/80 border border-white/10 font-mono text-[10px]">
-              ⌃/⌘ ⇧ T
+            <span>commands</span>
+            <span className="text-white/10 mx-1">·</span>
+            <kbd className="px-1.5 py-0.5 rounded bg-black/30 border border-white/10 text-[10px]">
+              ⌘⇧T
             </kbd>
-            <span className="text-slate-600">new terminal</span>
-            <span className="text-slate-700 mx-1">·</span>
-            <span className="text-slate-600">drag headers to rearrange</span>
+            <span>new terminal</span>
+            <span className="text-white/10 mx-1">·</span>
+            <span>drag headers to rearrange</span>
           </span>
         </footer>
       </div>

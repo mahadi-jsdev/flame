@@ -148,9 +148,9 @@ describe("Workspace shell", () => {
     expect(screen.getByText("Font size")).toBeInTheDocument();
   });
 
-  it("footer shows PTY ready status", () => {
+  it("footer shows system status", () => {
     render(<Workspace />);
-    expect(screen.getByText(/PTY engine ready/)).toBeInTheDocument();
+    expect(screen.getByText(/SYSTEM NOMINAL/)).toBeInTheDocument();
   });
 
   it("Ctrl+K opens the command palette", () => {
@@ -189,7 +189,7 @@ describe("Workspace shell", () => {
     render(<Workspace />);
     const dot = screen.getByTitle("Click to cycle tag color");
     fireEvent.click(dot);
-    expect(store().workspaces[0].panes[0].color).toBe("#22d3ee");
+    expect(store().workspaces[0].panes[0].color).toBe("#ffb238");
   });
 
   it("Ctrl+1 jumps to the first pane with a session", () => {

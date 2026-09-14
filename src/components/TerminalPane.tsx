@@ -265,7 +265,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
     <div className="relative h-full w-full">
       <div ref={divRef} className="h-full w-full outline-none p-2" tabIndex={0} />
       {searchOpen && (
-        <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-lg border border-white/10 bg-slate-900/95 px-1.5 py-1 shadow-lg shadow-black/40 backdrop-blur">
+        <div className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-lg border border-white/10 bg-[#1d1811]/95 px-1.5 py-1 shadow-lg shadow-black/40 backdrop-blur">
           <input
             ref={searchInputRef}
             value={searchQuery}
@@ -279,25 +279,25 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
             }}
             placeholder="Find in terminal"
             spellCheck={false}
-            className="w-40 bg-transparent px-1.5 py-0.5 text-[11px] font-mono text-slate-200 placeholder:text-slate-600 outline-none"
+            className="w-40 bg-transparent px-1.5 py-0.5 text-[11px] font-mono text-[#f3e9d8] placeholder:text-[#6f6455] outline-none"
           />
           <button
             onClick={() => runSearch("prev")}
-            className="p-1 rounded text-slate-400 hover:text-accent hover:bg-slate-800/60"
+            className="p-1 rounded text-[#a99a86] hover:text-accent hover:bg-[#2a2318]/60"
             title="Previous match"
           >
             <ChevronUp size={12} />
           </button>
           <button
             onClick={() => runSearch("next")}
-            className="p-1 rounded text-slate-400 hover:text-accent hover:bg-slate-800/60"
+            className="p-1 rounded text-[#a99a86] hover:text-accent hover:bg-[#2a2318]/60"
             title="Next match"
           >
             <ChevronDown size={12} />
           </button>
           <button
             onClick={closeSearch}
-            className="p-1 rounded text-slate-400 hover:text-rose-300 hover:bg-rose-500/20"
+            className="p-1 rounded text-[#a99a86] hover:text-rose-300 hover:bg-rose-500/20"
             title="Close search"
           >
             <X size={12} />

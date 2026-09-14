@@ -5,14 +5,14 @@ export const BUSY_MIN_MS = 10_000;
 export const QUIET_MS = 8_000;
 
 export const AGENT_COLORS: Record<string, string> = {
-  claude: "#22d3ee",
-  codex: "#34d399",
-  devin: "#f87171",
-  gemini: "#60a5fa",
-  aider: "#facc15",
-  "cursor-agent": "#c084fc",
-  opencode: "#fb923c",
-  copilot: "#94a3b8",
+  claude: "#ffb238",
+  codex: "#8bb4e8",
+  devin: "#ff6b52",
+  gemini: "#7ec9c9",
+  aider: "#ffcb6b",
+  "cursor-agent": "#c9a877",
+  opencode: "#e0894a",
+  copilot: "#8c8172",
 };
 
 export function agentName(command: string): string | null {
