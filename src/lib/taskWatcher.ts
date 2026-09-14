@@ -33,6 +33,13 @@ const PROMPT_PATTERNS: RegExp[] = [
   /enter to (select|confirm)/i,
   /esc(ape)? to cancel/i,
   /\byes, and don't ask again\b/i,
+  // Aider's confirmation style: "(Y)es/(N)o/(A)ll/(S)kip/(D)on't ask".
+  /\(y\)es\b/i,
+  /\(n\)o\b/i,
+  /\(d\)on't ask/i,
+  // Gemini CLI's tool/shell-command approval prompts.
+  /allow execution/i,
+  /yes, allow/i,
 ];
 
 // Strips common CSI/OSC ANSI escape sequences so prompt text can be matched

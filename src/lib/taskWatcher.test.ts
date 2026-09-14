@@ -244,7 +244,12 @@ describe("looksLikePrompt", () => {
     "Apply changes (yes/no)?",
     // Claude Code's actual confirmation UI: a numbered menu, not y/n text.
     "  1. Yes\n     Proceed\n  2. No\nEnter to select · ↑/↓ to navigate · Esc to cancel",
-    "Yes, and don't ask again",
+    "Yes, and don't ask again this session",
+    // Aider: https://aider.chat — "(Y)es/(N)o/(A)ll/(S)kip/(D)on't ask"
+    "Apply edit to foo.py? (Y)es/(N)o/(A)ll/(S)kip/(D)on't ask",
+    // Gemini CLI tool/shell approval prompts (google-gemini/gemini-cli docs)
+    "Allow execution of: 'python3 script.py'?",
+    "Yes, allow once",
   ])("recognizes: %s", (text) => {
     expect(looksLikePrompt(text)).toBe(true);
   });
