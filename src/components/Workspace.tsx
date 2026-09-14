@@ -567,7 +567,7 @@ export function Workspace() {
                     </button>
                   </div>
                   <div className="flex-1 min-h-0 relative bg-[#0e0b08] overflow-hidden">
-                    <TerminalPane paneId={pane.id} />
+                    <TerminalPane paneId={pane.id} visible={isVisible} />
                   </div>
                 </div>
               );
@@ -625,7 +625,7 @@ export function Workspace() {
                 </button>
               </div>
               <div className="flex-1 min-h-0 relative bg-[#0e0b08] overflow-hidden">
-                <TerminalPane paneId={pane.id} />
+                <TerminalPane paneId={pane.id} visible />
               </div>
             </div>
           </div>

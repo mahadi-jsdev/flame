@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
@@ -19,18 +19,57 @@ import "@xterm/xterm/css/xterm.css";
 
 interface TerminalPaneProps {
   paneId: string;
+  visible: boolean;
 }
 
 const TERM_FONT =
   '"JetBrainsMono Nerd Font Mono", "JetBrainsMono NFM", "JetBrainsMono Nerd Font", "JetBrains Mono", "Fira Code", "Cascadia Code", "SF Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 
-export function TerminalPane({ paneId }: TerminalPaneProps) {
+export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
   const divRef = useRef<HTMLDivElement>(null);
   const sessionIdRef = useRef<string>("");
   const searchAddonRef = useRef<SearchAddon | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
+  const reattachWebglRef = useRef<(() => void) | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  // The pane's container is toggled display:none <-> block when switching
+  // projects/workspaces (see Workspace.tsx's "always mounted" pattern) rather
+  // than ever unmounting, leaving xterm fit to a stale (often much narrower)
+  // size from whenever it was last visible until something re-fits it. A
+  // plain useEffect fires AFTER the browser has already painted — so the
+  // browser paints one frame of the newly-revealed pane at its stale size
+  // before the fit correction ever runs. useLayoutEffect runs synchronously
+  // after the DOM update but before paint, so measuring/fitting here lands
+  // in the same frame the pane becomes visible.
+  //
+  // fit() alone wasn't enough for the WebGL-rendered path specifically: the
+  // GPU canvas's backing pixel buffer can end up stuck at whatever size it
+  // was when the pane went display:none, so for one frame the (correctly
+  // resized) CSS box stretches that stale, lower-res buffer across itself —
+  // huge, blurry glyphs — until the addon's own resize logic catches up.
+  // Disposing and recreating the WebGL addon after fit() forces it to
+  // allocate a fresh, correctly-sized canvas immediately instead of racing
+  // its internal resize handling.
+  useLayoutEffect(() => {
+    if (!visible) return;
+    try {
+      fitAddonRef.current?.fit();
+    } catch {
+      // layout not ready yet — the rAF follow-up below will catch it
+    }
+    reattachWebglRef.current?.();
+    const raf = requestAnimationFrame(() => {
+      try {
+        fitAddonRef.current?.fit();
+      } catch {
+        // pane may have unmounted between frames
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [visible]);
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus();
@@ -126,9 +165,34 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
 
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
+    fitAddonRef.current = fitAddon;
     const searchAddon = new SearchAddon();
     term.loadAddon(searchAddon);
     searchAddonRef.current = searchAddon;
+
+    // @xterm/xterm ships no accelerated renderer of its own — without this,
+    // every glyph is a plain styled DOM <span>, which renders noticeably
+    // blurrier/softer than a GPU-rendered glyph atlas. Falls back to that
+    // same DOM rendering (silently) if WebGL is unavailable, the context is
+    // lost, or attaching throws. Recreated (not just resized) whenever the
+    // pane becomes visible again — see the useLayoutEffect above.
+    let webglAddon: WebglAddon | null = null;
+    const attachWebgl = () => {
+      webglAddon?.dispose();
+      webglAddon = null;
+      try {
+        const addon = new WebglAddon();
+        addon.onContextLoss(() => {
+          addon.dispose();
+          if (webglAddon === addon) webglAddon = null;
+        });
+        term.loadAddon(addon);
+        webglAddon = addon;
+      } catch {
+        // no WebGL support — DOM renderer remains active
+      }
+    };
+    reattachWebglRef.current = attachWebgl;
 
     const makeActive = () => {
       if (sessionIdRef.current) {
@@ -149,6 +213,9 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
         await killPty(sessionIdRef.current);
       }
       searchAddonRef.current = null;
+      fitAddonRef.current = null;
+      reattachWebglRef.current = null;
+      webglAddon?.dispose();
       term.dispose();
     };
 
@@ -165,19 +232,7 @@ export function TerminalPane({ paneId }: TerminalPaneProps) {
 
         term.open(divRef.current!);
         fitAddon.fit();
-
-        // @xterm/xterm ships no accelerated renderer of its own — without
-        // this, every glyph is a plain styled DOM <span>, which renders
-        // noticeably blurrier/softer than a GPU-rendered glyph atlas.
-        // Falls back to that same DOM rendering (silently) if WebGL is
-        // unavailable or the context is later lost.
-        try {
-          const webglAddon = new WebglAddon();
-          webglAddon.onContextLoss(() => webglAddon.dispose());
-          term.loadAddon(webglAddon);
-        } catch {
-          // no WebGL support — DOM renderer remains active
-        }
+        attachWebgl();
 
         // Re-fit once more after layout fully settles. A still-resolving
         // flex/grid layout (or a font whose real metrics differ slightly
