@@ -5,6 +5,15 @@ export type PtyDataPayload = { id: string; chunk_b64: string };
 export type PtyExitPayload = { id: string; exit_code: number | null };
 export type PtySpawnResult = { id: string; shell: string };
 
+export interface LspMessagePayload {
+  root: string;
+  message: string;
+}
+
+export interface LspExitPayload {
+  root: string;
+}
+
 export type GitStatusEntry = {
   status: string;
   path: string;
@@ -91,4 +100,24 @@ export function onPtyData(cb: (payload: PtyDataPayload) => void) {
 
 export function onPtyExit(cb: (payload: PtyExitPayload) => void) {
   return listen<PtyExitPayload>("pty-exit", (e) => cb(e.payload));
+}
+
+export function lspSpawn(root: string) {
+  return invoke<void>("lsp_spawn", { root });
+}
+
+export function lspSend(root: string, message: string) {
+  return invoke<void>("lsp_send", { root, message });
+}
+
+export function lspKill(root: string) {
+  return invoke<void>("lsp_kill", { root });
+}
+
+export function onLspMessage(cb: (payload: LspMessagePayload) => void) {
+  return listen<LspMessagePayload>("lsp-message", (e) => cb(e.payload));
+}
+
+export function onLspExit(cb: (payload: LspExitPayload) => void) {
+  return listen<LspExitPayload>("lsp-exit", (e) => cb(e.payload));
 }
