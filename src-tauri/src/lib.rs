@@ -1,4 +1,5 @@
 mod git;
+mod lsp;
 mod pty;
 
 use git::{
