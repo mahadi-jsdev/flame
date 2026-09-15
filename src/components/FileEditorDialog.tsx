@@ -132,30 +132,32 @@ export function FileEditorDialog({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <div className="flex p-0.5 rounded-lg bg-[#0e0b08]/80 border border-white/10">
-              <button
-                onClick={() => setMode("diff")}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
-                  mode === "diff"
-                    ? "bg-accent/15 text-accent shadow-sm"
-                    : "text-[#a99a86] hover:text-[#f3e9d8]"
-                }`}
-              >
-                <GitCompare size={11} />
-                Diff
-              </button>
-              <button
-                onClick={() => setMode("edit")}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
-                  mode === "edit"
-                    ? "bg-accent/15 text-accent shadow-sm"
-                    : "text-[#a99a86] hover:text-[#f3e9d8]"
-                }`}
-              >
-                <Pencil size={11} />
-                Edit
-              </button>
-            </div>
+            {status !== undefined && (
+              <div className="flex p-0.5 rounded-lg bg-[#0e0b08]/80 border border-white/10">
+                <button
+                  onClick={() => setMode("diff")}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                    mode === "diff"
+                      ? "bg-accent/15 text-accent shadow-sm"
+                      : "text-[#a99a86] hover:text-[#f3e9d8]"
+                  }`}
+                >
+                  <GitCompare size={11} />
+                  Diff
+                </button>
+                <button
+                  onClick={() => setMode("edit")}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                    mode === "edit"
+                      ? "bg-accent/15 text-accent shadow-sm"
+                      : "text-[#a99a86] hover:text-[#f3e9d8]"
+                  }`}
+                >
+                  <Pencil size={11} />
+                  Edit
+                </button>
+              </div>
+            )}
             {mode === "edit" && (
               <button
                 onClick={save}

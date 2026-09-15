@@ -282,6 +282,13 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
             setSearchOpen(true);
             return false;
           }
+          // Ctrl+P is the global "go to file" shortcut (Workspace.tsx) —
+          // block xterm from forwarding it to the shell as a raw control
+          // byte (readline treats that as "previous history") so the
+          // keydown still bubbles up to the window-level handler instead.
+          if (ctrlOrCmd && !e.shiftKey && e.key.toLowerCase() === "p") {
+            return false;
+          }
           // Plain Ctrl+C/Ctrl+V stay reserved for SIGINT and literal paste —
           // Ctrl+Shift+C/V is the conventional Linux-terminal copy/paste.
           if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === "c") {
