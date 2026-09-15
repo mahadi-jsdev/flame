@@ -63,6 +63,15 @@ describe("FileEditorDialog", () => {
     expect(mocks.gitDiffFile).not.toHaveBeenCalled();
   });
 
+  it("hides the Diff/Edit toggle when status is unknown (opened via Ctrl+P)", async () => {
+    const { status: _status, ...propsWithoutStatus } = baseProps;
+    render(<FileEditorDialog {...propsWithoutStatus} />);
+    expect(await screen.findByDisplayValue("const x = 1;")).toBeInTheDocument();
+    expect(screen.queryByText("Diff")).not.toBeInTheDocument();
+    expect(screen.queryByText("Edit")).not.toBeInTheDocument();
+    expect(mocks.gitDiffFile).not.toHaveBeenCalled();
+  });
+
   it("switches to edit mode and loads file content on demand", async () => {
     render(<FileEditorDialog {...baseProps} />);
     await screen.findByText("+new");
