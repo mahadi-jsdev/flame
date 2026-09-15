@@ -22,6 +22,7 @@ import {
   Folder,
   Search,
   PanelLeftOpen,
+  PanelRightOpen,
   Minimize2,
   Maximize2,
 } from "lucide-react";
@@ -605,7 +606,19 @@ export function Workspace() {
             )}
           </main>
 
-          <GitPanel />
+          {store.settings.gitPanelCollapsed ? (
+            <div className="w-10 h-full shrink-0 flex flex-col items-center pt-3 gap-3 bg-[#1d1811] border-l border-white/10">
+              <button
+                onClick={() => store.updateSettings({ gitPanelCollapsed: false })}
+                className="p-1.5 rounded-md text-[#a99a86] hover:text-accent hover:bg-white/[0.06] transition-colors"
+                title="Expand git panel"
+              >
+                <PanelRightOpen size={16} />
+              </button>
+            </div>
+          ) : (
+            <GitPanel />
+          )}
         </div>
 
         {overlayPanes.map((pane) => (

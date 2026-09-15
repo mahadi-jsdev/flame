@@ -168,6 +168,15 @@ pub fn git_diff_staged(path: &str, max_chars: usize) -> Result<String, String> {
     Ok(diff.chars().take(max_chars).collect())
 }
 
+/// Diff for a single file against HEAD (staged + unstaged combined). Falls
+/// back to a plain working-tree-vs-index diff for a brand new repo with no
+/// commits yet, where `HEAD` doesn't resolve. Empty for an untracked file —
+/// callers should treat that as "nothing to diff, it's all new".
+pub fn git_diff_file(path: &str, file: &str) -> Result<String, String> {
+    run_git(path, &["diff", "HEAD", "--no-color", "-U3", "--", file])
+        .or_else(|_| run_git(path, &["diff", "--no-color", "-U3", "--", file]))
+}
+
 pub fn git_commit(path: &str, message: &str) -> Result<(), String> {
     run_git(path, &["commit", "-m", message])?;
     Ok(())
@@ -491,5 +500,47 @@ mod tests {
         r.write("a.txt", "hi");
         r.commit_all();
         assert!(git_commit(r.path(), "nothing").is_err());
+    }
+
+    #[test]
+    fn diff_file_shows_unstaged_change_against_head() {
+        let r = TestRepo::new();
+        r.write("a.txt", "one\n");
+        r.commit_all();
+        r.write("a.txt", "two\n");
+        let diff = git_diff_file(r.path(), "a.txt").unwrap();
+        assert!(diff.contains("-one"));
+        assert!(diff.contains("+two"));
+    }
+
+    #[test]
+    fn diff_file_shows_staged_change_too() {
+        let r = TestRepo::new();
+        r.write("a.txt", "one\n");
+        r.commit_all();
+        r.write("a.txt", "two\n");
+        r.run(&["add", "-A"]);
+        let diff = git_diff_file(r.path(), "a.txt").unwrap();
+        assert!(diff.contains("+two"));
+    }
+
+    #[test]
+    fn diff_file_empty_for_untracked_file() {
+        let r = TestRepo::new();
+        r.write("tracked.txt", "hi");
+        r.commit_all();
+        r.write("new.txt", "brand new");
+        let diff = git_diff_file(r.path(), "new.txt").unwrap();
+        assert!(diff.trim().is_empty());
+    }
+
+    #[test]
+    fn diff_file_works_before_any_commit_exists() {
+        let r = TestRepo::new();
+        r.write("a.txt", "hi");
+        r.run(&["add", "-A"]);
+        // No commits yet, so `diff HEAD` can't resolve — falls back to the
+        // plain working-tree-vs-index diff instead of erroring.
+        assert!(git_diff_file(r.path(), "a.txt").is_ok());
     }
 }

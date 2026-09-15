@@ -1,8 +1,11 @@
 mod git;
 mod pty;
 
-use git::{git_branch, git_branches, git_checkout, git_root, git_status, GitStatusEntry};
+use git::{
+    git_branch, git_branches, git_checkout, git_diff_file, git_root, git_status, GitStatusEntry,
+};
 
+mod files;
 mod openai;
 mod secrets;
 use pty::{PtyManager, PtySpawnResult};
@@ -67,6 +70,21 @@ fn git_root_cmd(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn git_diff_file_cmd(path: String, file: String) -> Result<String, String> {
+    git_diff_file(&path, &file)
+}
+
+#[tauri::command]
+fn read_text_file_cmd(path: String) -> Result<String, String> {
+    files::read_text_file(&path)
+}
+
+#[tauri::command]
+fn write_text_file_cmd(path: String, content: String) -> Result<(), String> {
+    files::write_text_file(&path, &content)
+}
+
+#[tauri::command]
 fn has_api_key_cmd() -> bool {
     secrets::has_api_key()
 }
@@ -122,10 +140,13 @@ pub fn run() {
             git_branches_cmd,
             git_checkout_cmd,
             git_root_cmd,
+            git_diff_file_cmd,
             git_auto_commit_cmd,
             has_api_key_cmd,
             save_api_key_cmd,
-            delete_api_key_cmd
+            delete_api_key_cmd,
+            read_text_file_cmd,
+            write_text_file_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -35,6 +35,18 @@ export function gitAutoCommit(path: string, model?: string) {
   return invoke<string>("git_auto_commit_cmd", { path, model });
 }
 
+export function gitDiffFile(path: string, file: string) {
+  return invoke<string>("git_diff_file_cmd", { path, file });
+}
+
+export function readTextFile(path: string) {
+  return invoke<string>("read_text_file_cmd", { path });
+}
+
+export function writeTextFile(path: string, content: string) {
+  return invoke<void>("write_text_file_cmd", { path, content });
+}
+
 export function hasApiKey() {
   return invoke<boolean>("has_api_key_cmd");
 }
