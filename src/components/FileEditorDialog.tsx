@@ -197,7 +197,14 @@ export function FileEditorDialog({
             </div>
           )}
           {!error && mode === "edit" && content !== null && (
-            <CodeEditor value={content} onChange={setContent} path={relPath} autoFocus />
+            <CodeEditor
+              value={content}
+              onChange={setContent}
+              path={relPath}
+              absPath={absPath}
+              projectRoot={repoRoot}
+              autoFocus
+            />
           )}
           {!error && mode === "diff" && !loading && isUntracked && (
             <div className="h-full flex flex-col items-center justify-center text-[#8a7c68] text-center px-4">
