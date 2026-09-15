@@ -60,3 +60,25 @@ export function languageForPath(path: string): Extension[] {
       return [];
   }
 }
+
+/** LSP `languageId` for JS/TS files only — null means "not LSP-eligible",
+ * same file-extension switch as languageForPath above. */
+export function lspLanguageIdForPath(
+  path: string,
+): "typescript" | "typescriptreact" | "javascript" | "javascriptreact" | null {
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  switch (ext) {
+    case "ts":
+      return "typescript";
+    case "tsx":
+      return "typescriptreact";
+    case "js":
+    case "mjs":
+    case "cjs":
+      return "javascript";
+    case "jsx":
+      return "javascriptreact";
+    default:
+      return null;
+  }
+}
