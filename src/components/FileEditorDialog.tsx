@@ -16,7 +16,11 @@ interface FileEditorDialogProps {
   absPath: string;
   repoRoot: string;
   relPath: string;
-  status: string;
+  /** Omitted when opened via the file finder rather than the git changes
+   * list — there's no known status to show, and nothing pre-fetched to
+   * diff against, so this behaves the same as an untracked ("??") file:
+   * default straight to Edit. The Diff tab is still available either way. */
+  status?: string;
   onClose: () => void;
 }
 
@@ -27,7 +31,7 @@ export function FileEditorDialog({
   status,
   onClose,
 }: FileEditorDialogProps) {
-  const isUntracked = status === "??";
+  const isUntracked = status === "??" || status === undefined;
   const [mode, setMode] = useState<"diff" | "edit">(isUntracked ? "edit" : "diff");
 
   const [content, setContent] = useState<string | null>(null);
@@ -114,12 +118,14 @@ export function FileEditorDialog({
           <div className="flex items-center gap-2 min-w-0 text-xs font-semibold text-[#f3e9d8]">
             <FileText size={13} className="text-accent shrink-0" />
             <span className="truncate">{name}</span>
-            <span
-              className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border font-medium ${statusColor(status)}`}
-              title={statusLabel(status)}
-            >
-              {status}
-            </span>
+            {status && (
+              <span
+                className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border font-medium ${statusColor(status)}`}
+                title={statusLabel(status)}
+              >
+                {status}
+              </span>
+            )}
             {dirty && (
               <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-accent" title="Unsaved changes" />
             )}

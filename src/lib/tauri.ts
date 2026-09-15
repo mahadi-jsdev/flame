@@ -47,6 +47,10 @@ export function writeTextFile(path: string, content: string) {
   return invoke<void>("write_text_file_cmd", { path, content });
 }
 
+export function listProjectFiles(path: string) {
+  return invoke<string[]>("list_project_files_cmd", { path });
+}
+
 export function hasApiKey() {
   return invoke<boolean>("has_api_key_cmd");
 }

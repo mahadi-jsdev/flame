@@ -182,6 +182,17 @@ pub fn git_commit(path: &str, message: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Every file worth showing in a file finder: tracked files plus untracked
+/// ones that aren't gitignored — one call, correct .gitignore handling for
+/// free instead of hand-rolling ignore-file parsing.
+pub fn git_list_files(path: &str) -> Result<Vec<String>, String> {
+    let out = run_git(
+        path,
+        &["ls-files", "--cached", "--others", "--exclude-standard"],
+    )?;
+    Ok(out.lines().map(|l| l.to_string()).collect())
+}
+
 pub fn git_root(path: &str) -> Result<String, String> {
     let output = Command::new("git")
         .arg("-C")
@@ -542,5 +553,33 @@ mod tests {
         // No commits yet, so `diff HEAD` can't resolve — falls back to the
         // plain working-tree-vs-index diff instead of erroring.
         assert!(git_diff_file(r.path(), "a.txt").is_ok());
+    }
+
+    #[test]
+    fn list_files_includes_tracked_and_untracked() {
+        let r = TestRepo::new();
+        r.write("tracked.txt", "hi");
+        r.commit_all();
+        r.write("new.txt", "brand new");
+        let files = git_list_files(r.path()).unwrap();
+        assert!(files.contains(&"tracked.txt".to_string()));
+        assert!(files.contains(&"new.txt".to_string()));
+    }
+
+    #[test]
+    fn list_files_respects_gitignore() {
+        let r = TestRepo::new();
+        r.write(".gitignore", "ignored.txt\n");
+        r.write("ignored.txt", "should not appear");
+        r.write("visible.txt", "should appear");
+        let files = git_list_files(r.path()).unwrap();
+        assert!(!files.contains(&"ignored.txt".to_string()));
+        assert!(files.contains(&"visible.txt".to_string()));
+    }
+
+    #[test]
+    fn list_files_empty_repo_is_empty() {
+        let r = TestRepo::new();
+        assert_eq!(git_list_files(r.path()).unwrap(), Vec::<String>::new());
     }
 }

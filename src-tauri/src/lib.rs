@@ -2,7 +2,8 @@ mod git;
 mod pty;
 
 use git::{
-    git_branch, git_branches, git_checkout, git_diff_file, git_root, git_status, GitStatusEntry,
+    git_branch, git_branches, git_checkout, git_diff_file, git_list_files, git_root, git_status,
+    GitStatusEntry,
 };
 
 mod files;
@@ -85,6 +86,11 @@ fn write_text_file_cmd(path: String, content: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn list_project_files_cmd(path: String) -> Result<Vec<String>, String> {
+    git_list_files(&path).or_else(|_| files::list_files_fallback_walk(&path))
+}
+
+#[tauri::command]
 fn has_api_key_cmd() -> bool {
     secrets::has_api_key()
 }
@@ -146,7 +152,8 @@ pub fn run() {
             save_api_key_cmd,
             delete_api_key_cmd,
             read_text_file_cmd,
-            write_text_file_cmd
+            write_text_file_cmd,
+            list_project_files_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -586,3 +586,24 @@ describe("git panel collapse", () => {
     expect(screen.getByTitle("Expand git panel")).toBeInTheDocument();
   });
 });
+
+describe("Ctrl+P file finder", () => {
+  it("does nothing when no project is active", () => {
+    render(<Workspace />);
+    fireEvent.keyDown(window, { key: "p", ctrlKey: true });
+    expect(screen.queryByPlaceholderText("Go to file…")).not.toBeInTheDocument();
+  });
+
+  it("opens the file finder when a project is active", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? { ...w, projects: [{ id: "pr1", root: "/repo/a" }], activeProjectId: "pr1" }
+          : w,
+      ),
+    }));
+    render(<Workspace />);
+    fireEvent.keyDown(window, { key: "p", ctrlKey: true });
+    expect(screen.getByPlaceholderText("Go to file…")).toBeInTheDocument();
+  });
+});
