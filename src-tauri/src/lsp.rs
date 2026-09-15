@@ -1,15 +1,127 @@
+use serde::Serialize;
+use std::collections::HashMap;
+use std::io::{Read, Write};
+use std::process::{Child, ChildStdin, Command, Stdio};
+use std::sync::{Arc, Mutex};
+use tauri::{AppHandle, Emitter};
+
+#[derive(Clone, Serialize)]
+pub struct LspMessagePayload {
+    pub root: String,
+    pub message: String,
+}
+
+#[derive(Clone, Serialize)]
+pub struct LspExitPayload {
+    pub root: String,
+}
+
+pub struct LspManager {
+    sessions: Mutex<HashMap<String, LspSession>>,
+    app: AppHandle,
+}
+
+struct LspSession {
+    writer: Arc<Mutex<ChildStdin>>,
+    child: Child,
+}
+
+impl LspManager {
+    pub fn new(app: AppHandle) -> Self {
+        Self {
+            sessions: Mutex::new(HashMap::new()),
+            app,
+        }
+    }
+
+    pub fn spawn(&self, root: String) -> Result<(), Box<dyn std::error::Error>> {
+        let mut child = Command::new("typescript-language-server")
+            .arg("--stdio")
+            .current_dir(&root)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()?;
+
+        let writer = child.stdin.take().ok_or("no stdin on lsp child")?;
+        let mut reader = child.stdout.take().ok_or("no stdout on lsp child")?;
+
+        let session = LspSession {
+            writer: Arc::new(Mutex::new(writer)),
+            child,
+        };
+
+        let root_for_reader = root.clone();
+        self.sessions.lock().unwrap().insert(root, session);
+
+        let app = self.app.clone();
+        std::thread::spawn(move || {
+            let mut pending: Vec<u8> = Vec::new();
+            let mut chunk = [0u8; 4096];
+            loop {
+                match reader.read(&mut chunk) {
+                    Ok(0) => {
+                        let _ = app.emit(
+                            "lsp-exit",
+                            LspExitPayload {
+                                root: root_for_reader,
+                            },
+                        );
+                        break;
+                    }
+                    Ok(n) => {
+                        pending.extend_from_slice(&chunk[..n]);
+                        for message in extract_messages(&mut pending) {
+                            let _ = app.emit(
+                                "lsp-message",
+                                LspMessagePayload {
+                                    root: root_for_reader.clone(),
+                                    message,
+                                },
+                            );
+                        }
+                    }
+                    Err(_) => {
+                        let _ = app.emit(
+                            "lsp-exit",
+                            LspExitPayload {
+                                root: root_for_reader,
+                            },
+                        );
+                        break;
+                    }
+                }
+            }
+        });
+
+        Ok(())
+    }
+
+    pub fn send(&self, root: &str, message: &str) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(session) = self.sessions.lock().unwrap().get(root) {
+            let mut writer = session.writer.lock().unwrap();
+            let framed = format!("Content-Length: {}\r\n\r\n{}", message.len(), message);
+            writer.write_all(framed.as_bytes())?;
+            writer.flush()?;
+        }
+        Ok(())
+    }
+
+    pub fn kill(&self, root: &str) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(mut session) = self.sessions.lock().unwrap().remove(root) {
+            session.child.kill()?;
+        }
+        Ok(())
+    }
+}
+
 /// Pulls complete `Content-Length`-framed JSON-RPC messages out of `buf`,
 /// LSP's wire format (HTTP-style headers, blank line, then exactly
 /// `Content-Length` body bytes — not newline-delimited JSON). Leaves any
 /// trailing partial message in `buf` for the next read.
 fn extract_messages(buf: &mut Vec<u8>) -> Vec<String> {
     let mut messages = Vec::new();
-    loop {
-        let header_end = match find_subslice(buf, b"\r\n\r\n") {
-            Some(pos) => pos,
-            None => break,
-        };
-
+    while let Some(header_end) = find_subslice(buf, b"\r\n\r\n") {
         let content_length = std::str::from_utf8(&buf[..header_end])
             .ok()
             .and_then(|headers| {

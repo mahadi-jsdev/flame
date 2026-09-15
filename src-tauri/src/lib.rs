@@ -10,6 +10,7 @@ use git::{
 mod files;
 mod openai;
 mod secrets;
+use lsp::LspManager;
 use pty::{PtyManager, PtySpawnResult};
 use tauri::Manager;
 
@@ -44,6 +45,25 @@ fn resize_pty(
 #[tauri::command]
 fn kill_pty(state: tauri::State<'_, PtyManager>, id: String) -> Result<(), String> {
     state.kill(&id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn lsp_spawn(state: tauri::State<'_, LspManager>, root: String) -> Result<(), String> {
+    state.spawn(root).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn lsp_send(
+    state: tauri::State<'_, LspManager>,
+    root: String,
+    message: String,
+) -> Result<(), String> {
+    state.send(&root, &message).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn lsp_kill(state: tauri::State<'_, LspManager>, root: String) -> Result<(), String> {
+    state.kill(&root).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -135,6 +155,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             app.manage(PtyManager::new(app.handle().clone()));
+            app.manage(LspManager::new(app.handle().clone()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -142,6 +163,9 @@ pub fn run() {
             write_pty,
             resize_pty,
             kill_pty,
+            lsp_spawn,
+            lsp_send,
+            lsp_kill,
             git_status_cmd,
             git_branch_cmd,
             git_branches_cmd,
