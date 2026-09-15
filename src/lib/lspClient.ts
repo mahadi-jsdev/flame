@@ -127,7 +127,10 @@ async function createSession(
   });
 
   await client.initializePromise;
-  if (!client.ready) return null;
+  if (!client.ready) {
+    transport.close();
+    return null;
+  }
 
   return { client, transport };
 }

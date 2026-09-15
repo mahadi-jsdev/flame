@@ -119,4 +119,29 @@ describe("getLspSession", () => {
     expect(second).toBeNull();
     expect(mocks.lspSpawn).toHaveBeenCalledTimes(1);
   });
+
+  it("kills the process and caches unavailable when initialization never completes", async () => {
+    // Override the default fake-server response: swallow every message
+    // (including `initialize`) instead of answering it, so the real
+    // LanguageServerClient's initialize request runs out its internal
+    // timeout (timeout * 3 = 30s) without ever setting `client.ready`.
+    mocks.lspSend.mockImplementation(() => {});
+
+    vi.useFakeTimers();
+    try {
+      const sessionPromise = getLspSession(
+        "/proj/hangs",
+        "file:///proj/hangs/a.ts",
+        "typescript",
+      );
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      const session = await sessionPromise;
+
+      expect(session).toBeNull();
+      expect(mocks.lspKill).toHaveBeenCalledWith("/proj/hangs");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
