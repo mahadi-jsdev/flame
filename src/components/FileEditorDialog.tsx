@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { gitDiffFile, readTextFile, writeTextFile } from "../lib/tauri";
 import { statusColor, statusLabel } from "../lib/gitUtils";
+import { CodeEditor } from "./CodeEditor";
 import { Check, FileText, GitCompare, Loader2, Pencil, X } from "lucide-react";
 
 function diffLineClass(line: string) {
@@ -39,7 +40,6 @@ export function FileEditorDialog({
   const [error, setError] = useState<string | null>(null);
 
   const dirty = content !== null && original !== null && content !== original;
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,10 +97,6 @@ export function FileEditorDialog({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, content]);
-
-  useEffect(() => {
-    if (mode === "edit" && content !== null) textareaRef.current?.focus();
   }, [mode, content]);
 
   const name = relPath.split("/").pop() ?? relPath;
@@ -193,13 +189,7 @@ export function FileEditorDialog({
             </div>
           )}
           {!error && mode === "edit" && content !== null && (
-            <textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              spellCheck={false}
-              className="w-full h-full resize-none outline-none p-4 bg-[#0e0b08] text-[#f3e9d8] font-mono text-xs leading-relaxed"
-            />
+            <CodeEditor value={content} onChange={setContent} path={relPath} autoFocus />
           )}
           {!error && mode === "diff" && !loading && isUntracked && (
             <div className="h-full flex flex-col items-center justify-center text-[#8a7c68] text-center px-4">

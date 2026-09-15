@@ -14,6 +14,28 @@ vi.mock("../lib/tauri", () => ({
   writeTextFile: mocks.writeTextFile,
 }));
 
+// CodeMirror's real contenteditable structure works in jsdom but isn't
+// practical to drive via fireEvent (no plain value/onChange DOM contract) —
+// stand in with a plain textarea carrying the same {value, onChange, path}
+// contract so this file's own mode/dirty/save logic stays testable; the
+// real syntax-highlighted rendering is verified in the browser instead.
+vi.mock("./CodeEditor", () => ({
+  CodeEditor: ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+    path: string;
+  }) => (
+    <textarea
+      data-testid="code-editor"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  ),
+}));
+
 const baseProps = {
   absPath: "/repo/src/a.ts",
   repoRoot: "/repo",

@@ -34,6 +34,25 @@ vi.mock("../lib/tauri", () => ({
   writeTextFile: mocks.writeTextFile,
 }));
 
+// See FileEditorDialog.test.tsx for why CodeEditor is stubbed rather than
+// exercised for real here too.
+vi.mock("./CodeEditor", () => ({
+  CodeEditor: ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+    path: string;
+  }) => (
+    <textarea
+      data-testid="code-editor"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  ),
+}));
+
 function reset() {
   useWorkspaceStore.setState({
     workspaces: [
