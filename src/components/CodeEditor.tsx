@@ -48,7 +48,13 @@ export function CodeEditor({
           workspaceFolders: [
             { uri: rootUri, name: projectRoot.split("/").pop() ?? projectRoot },
           ],
-          allowHTMLContent: true,
+          // Hover/completion docs come from JSDoc comments in the project's
+          // own files and its dependencies' .d.ts files — untrusted content
+          // that codemirror-languageserver renders via innerHTML. The app's
+          // CSP (src-tauri/tauri.conf.json) is what actually neutralizes an
+          // injected <script>/onerror payload; this flag is the honest value
+          // on top of it, since Flame never wants server-supplied HTML.
+          allowHTMLContent: false,
         }),
       );
     });
