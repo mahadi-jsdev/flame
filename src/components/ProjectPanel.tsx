@@ -1,5 +1,6 @@
 import { useWorkspaceStore } from "../store/workspaceStore";
 import { pickDirectory } from "../lib/tauri";
+import { releaseLspSession } from "../lib/lspClient";
 import { projectName } from "../lib/gitUtils";
 import { Folder, Plus, X } from "lucide-react";
 
@@ -59,6 +60,11 @@ export function ProjectPanel() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      // Project removal is the boundary that bounds LSP
+                      // process lifetime: typescript-language-server forks
+                      // tsserver (hundreds of MB on a mid-size project) and
+                      // nothing else kills it before app exit.
+                      releaseLspSession(p.root);
                       store.removeProject(p.id);
                     }}
                     className="opacity-0 group-hover:opacity-100 p-1 rounded text-[#8a7c68] hover:text-rose-300 hover:bg-rose-500/20 transition-all"

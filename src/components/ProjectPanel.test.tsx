@@ -7,8 +7,17 @@ const mocks = vi.hoisted(() => ({
   pickDirectory: vi.fn(async (): Promise<string | null> => "/picked/dir"),
 }));
 
+// ProjectPanel now pulls in lspClient (to release a project's LSP session on
+// removal), which imports these from the same module — they have to exist on
+// the mock even though removing a project with no open session never calls
+// them.
 vi.mock("../lib/tauri", () => ({
   pickDirectory: mocks.pickDirectory,
+  lspSpawn: vi.fn(async () => {}),
+  lspSend: vi.fn(async () => {}),
+  lspKill: vi.fn(async () => {}),
+  onLspMessage: vi.fn(async () => () => {}),
+  onLspExit: vi.fn(async () => () => {}),
 }));
 
 function reset() {
