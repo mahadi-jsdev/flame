@@ -35,6 +35,15 @@ impl LspManager {
     }
 
     pub fn spawn(&self, root: String) -> Result<(), Box<dyn std::error::Error>> {
+        // Idempotent: a second spawn for the same root would overwrite the
+        // HashMap entry, dropping the previous LspSession (and its Child)
+        // without killing or waiting on it — silently orphaning a live
+        // server process. The frontend's session cache already prevents
+        // this in practice, but lsp_spawn is directly invokable.
+        if self.sessions.lock().unwrap().contains_key(&root) {
+            return Ok(());
+        }
+
         let mut child = Command::new("typescript-language-server")
             .arg("--stdio")
             .current_dir(&root)
@@ -120,6 +129,10 @@ impl LspManager {
 /// `Content-Length` body bytes — not newline-delimited JSON). Leaves any
 /// trailing partial message in `buf` for the next read.
 fn extract_messages(buf: &mut Vec<u8>) -> Vec<String> {
+    /// Generous upper bound for any real LSP message — past this, a
+    /// Content-Length is treated as garbage rather than buffered.
+    const MAX_MESSAGE_LEN: usize = 64 * 1024 * 1024; // 64 MiB
+
     let mut messages = Vec::new();
     while let Some(header_end) = find_subslice(buf, b"\r\n\r\n") {
         let content_length = std::str::from_utf8(&buf[..header_end])
@@ -142,7 +155,21 @@ fn extract_messages(buf: &mut Vec<u8>) -> Vec<String> {
         };
 
         let body_start = header_end + 4;
-        let body_end = body_start + content_length;
+        let body_end = match body_start.checked_add(content_length) {
+            Some(end) if content_length <= MAX_MESSAGE_LEN => end,
+            _ => {
+                // A bogus Content-Length (overflowing usize, or merely
+                // absurd enough to buffer unboundedly) would otherwise
+                // panic this reader thread — on the addition in debug, or
+                // on an inverted slice range after a release-mode wrap —
+                // which kills the thread before it can emit `lsp-exit`,
+                // leaving the frontend hung on a session it thinks is
+                // alive. Drop the header block and keep scanning, the same
+                // recovery as the "no Content-Length" branch above.
+                buf.drain(..header_end + 4);
+                continue;
+            }
+        };
         if buf.len() < body_end {
             break; // Body not fully received yet.
         }
@@ -211,6 +238,27 @@ mod tests {
     #[test]
     fn drops_a_header_with_no_content_length_rather_than_looping_forever() {
         let mut buf = b"Bogus-Header: nope\r\n\r\nContent-Length: 2\r\n\r\n{}".to_vec();
+        let messages = extract_messages(&mut buf);
+        assert_eq!(messages, vec!["{}".to_string()]);
+        assert!(buf.is_empty());
+    }
+
+    #[test]
+    fn drops_a_frame_with_an_overflowing_content_length_instead_of_panicking() {
+        let mut buf =
+            b"Content-Length: 18446744073709551615\r\n\r\nContent-Length: 2\r\n\r\n{}".to_vec();
+        let messages = extract_messages(&mut buf);
+        assert_eq!(messages, vec!["{}".to_string()]);
+        assert!(buf.is_empty());
+    }
+
+    #[test]
+    fn drops_a_frame_whose_content_length_exceeds_the_sanity_cap() {
+        let mut buf = format!(
+            "Content-Length: {}\r\n\r\nContent-Length: 2\r\n\r\n{{}}",
+            64 * 1024 * 1024 + 1
+        )
+        .into_bytes();
         let messages = extract_messages(&mut buf);
         assert_eq!(messages, vec!["{}".to_string()]);
         assert!(buf.is_empty());
