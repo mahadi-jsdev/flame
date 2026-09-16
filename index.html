@@ -11,16 +11,7 @@
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Flame</title>
-    <style>
-      /* Painted before the bundled CSS/React even loads, so the very first
-         frame is already dark instead of the browser's default white —
-         that gap is what shows up as a white flash on launch. */
-      html,
-      body {
-        background: #0e0b08;
-        color-scheme: dark;
-      }
-    </style>
+    <link rel="stylesheet" href="/critical.css" />
   </head>
 
   <body>
