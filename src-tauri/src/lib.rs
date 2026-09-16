@@ -1,10 +1,16 @@
 mod git;
+mod lsp;
 mod pty;
 
-use git::{git_branch, git_branches, git_checkout, git_root, git_status, GitStatusEntry};
+use git::{
+    git_branch, git_branches, git_checkout, git_diff_file, git_list_files, git_root, git_status,
+    GitStatusEntry,
+};
 
+mod files;
 mod openai;
 mod secrets;
+use lsp::LspManager;
 use pty::{PtyManager, PtySpawnResult};
 use tauri::Manager;
 
@@ -42,6 +48,25 @@ fn kill_pty(state: tauri::State<'_, PtyManager>, id: String) -> Result<(), Strin
 }
 
 #[tauri::command]
+fn lsp_spawn(state: tauri::State<'_, LspManager>, root: String) -> Result<(), String> {
+    state.spawn(root).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn lsp_send(
+    state: tauri::State<'_, LspManager>,
+    root: String,
+    message: String,
+) -> Result<(), String> {
+    state.send(&root, &message).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn lsp_kill(state: tauri::State<'_, LspManager>, root: String) -> Result<(), String> {
+    state.kill(&root).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 fn git_status_cmd(path: String) -> Result<Vec<GitStatusEntry>, String> {
     git_status(&path)
 }
@@ -64,6 +89,26 @@ fn git_checkout_cmd(path: String, branch: String) -> Result<(), String> {
 #[tauri::command]
 fn git_root_cmd(path: String) -> Result<String, String> {
     git_root(&path)
+}
+
+#[tauri::command]
+fn git_diff_file_cmd(path: String, file: String) -> Result<String, String> {
+    git_diff_file(&path, &file)
+}
+
+#[tauri::command]
+fn read_text_file_cmd(path: String) -> Result<String, String> {
+    files::read_text_file(&path)
+}
+
+#[tauri::command]
+fn write_text_file_cmd(path: String, content: String) -> Result<(), String> {
+    files::write_text_file(&path, &content)
+}
+
+#[tauri::command]
+fn list_project_files_cmd(path: String) -> Result<Vec<String>, String> {
+    git_list_files(&path).or_else(|_| files::list_files_fallback_walk(&path))
 }
 
 #[tauri::command]
@@ -110,6 +155,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             app.manage(PtyManager::new(app.handle().clone()));
+            app.manage(LspManager::new(app.handle().clone()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -117,15 +163,22 @@ pub fn run() {
             write_pty,
             resize_pty,
             kill_pty,
+            lsp_spawn,
+            lsp_send,
+            lsp_kill,
             git_status_cmd,
             git_branch_cmd,
             git_branches_cmd,
             git_checkout_cmd,
             git_root_cmd,
+            git_diff_file_cmd,
             git_auto_commit_cmd,
             has_api_key_cmd,
             save_api_key_cmd,
-            delete_api_key_cmd
+            delete_api_key_cmd,
+            read_text_file_cmd,
+            write_text_file_cmd,
+            list_project_files_cmd
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

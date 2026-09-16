@@ -16,6 +16,7 @@ import {
   statusLabel,
   TreeDir,
 } from "../lib/gitUtils";
+import { FileEditorDialog } from "./FileEditorDialog";
 import {
   Check,
   ChevronDown,
@@ -25,6 +26,7 @@ import {
   FolderOpen,
   GitBranch,
   Loader2,
+  PanelRightClose,
   RefreshCw,
   Sparkles,
   SquareTerminal,
@@ -58,6 +60,7 @@ export function GitPanel() {
   const [aiCommitting, setAiCommitting] = useState(false);
   const [lastCommit, setLastCommit] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingFile, setEditingFile] = useState<GitStatusEntry | null>(null);
 
   const refreshGit = async () => {
     if (!project) return;
@@ -98,6 +101,7 @@ export function GitPanel() {
     setShowBranches(false);
     setLastCommit(null);
     setError(null);
+    setEditingFile(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id, project?.root]);
 
@@ -164,6 +168,7 @@ export function GitPanel() {
           <span className="font-display text-[11px] font-semibold text-[#a99a86] uppercase tracking-widest">
             Changes
           </span>
+          <span className="flex items-center gap-1.5 min-w-0">
           {project && (
             <button
               onClick={toggleBranches}
@@ -178,6 +183,14 @@ export function GitPanel() {
               />
             </button>
           )}
+          <button
+            onClick={() => store.updateSettings({ gitPanelCollapsed: true })}
+            className="shrink-0 p-1 rounded-md text-[#a99a86] hover:text-accent hover:bg-white/[0.05] transition-colors"
+            title="Collapse git panel"
+          >
+            <PanelRightClose size={14} />
+          </button>
+          </span>
         </div>
         {project && (
           <div className="flex items-center gap-1.5">
@@ -264,6 +277,7 @@ export function GitPanel() {
                   depth={0}
                   collapsed={collapsed}
                   onToggle={toggleDir}
+                  onOpenFile={setEditingFile}
                 />
               </div>
             )}
@@ -274,6 +288,16 @@ export function GitPanel() {
       <div className="h-8 shrink-0 flex items-center px-4 text-xs text-[#6f6455] border-t border-white/10">
         {entries.length} change{entries.length === 1 ? "" : "s"}
       </div>
+
+      {editingFile && project && (
+        <FileEditorDialog
+          absPath={`${(repoRoot ?? project.root).replace(/\/$/, "")}/${editingFile.path}`}
+          repoRoot={repoRoot ?? project.root}
+          relPath={editingFile.path}
+          status={editingFile.status}
+          onClose={() => setEditingFile(null)}
+        />
+      )}
     </aside>
   );
 }
@@ -283,11 +307,13 @@ function DirTree({
   depth,
   collapsed,
   onToggle,
+  onOpenFile,
 }: {
   dir: TreeDir;
   depth: number;
   collapsed: Set<string>;
   onToggle: (path: string) => void;
+  onOpenFile: (entry: GitStatusEntry) => void;
 }) {
   return (
     <>
@@ -309,37 +335,54 @@ function DirTree({
               <span className="truncate">{d.name}</span>
             </div>
             {!isCollapsed && (
-              <DirTree dir={d} depth={depth + 1} collapsed={collapsed} onToggle={onToggle} />
+              <DirTree
+                dir={d}
+                depth={depth + 1}
+                collapsed={collapsed}
+                onToggle={onToggle}
+                onOpenFile={onOpenFile}
+              />
             )}
           </div>
         );
       })}
-      {dir.files.map((f) => (
-        <div
-          key={f.entry.path}
-          className="flex items-center gap-2 py-1.5 pr-2 rounded-md"
-          style={{ paddingLeft: `${depth * 14 + 21}px` }}
-        >
-          <File size={13} className="shrink-0 text-accent" />
-          <span className="text-xs text-[#d9cbb5] truncate flex-1 min-w-0">
-            {f.entry.original_path ? (
-              <>
-                <span className="text-[#8a7c68] line-through">{f.entry.original_path.split("/").pop()}</span>
-                {" → "}
-                {f.name}
-              </>
-            ) : (
-              f.name
-            )}
-          </span>
-          <span
-            className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border font-medium ${statusColor(f.entry.status)}`}
-            title={statusLabel(f.entry.status)}
+      {dir.files.map((f) => {
+        const isDir = f.entry.path.endsWith("/");
+        return (
+          <div
+            key={f.entry.path}
+            onClick={() => !isDir && onOpenFile(f.entry)}
+            className={`flex items-center gap-2 py-1.5 pr-2 rounded-md transition-colors ${
+              isDir ? "" : "cursor-pointer hover:bg-[#2a2318]/60"
+            }`}
+            style={{ paddingLeft: `${depth * 14 + 21}px` }}
+            title={isDir ? undefined : "Click to view"}
           >
-            {f.entry.status}
-          </span>
-        </div>
-      ))}
+            {isDir ? (
+              <Folder size={13} className="shrink-0 text-accent" />
+            ) : (
+              <File size={13} className="shrink-0 text-accent" />
+            )}
+            <span className="text-xs text-[#d9cbb5] truncate flex-1 min-w-0">
+              {f.entry.original_path ? (
+                <>
+                  <span className="text-[#8a7c68] line-through">{f.entry.original_path.split("/").pop()}</span>
+                  {" → "}
+                  {f.name}
+                </>
+              ) : (
+                f.name
+              )}
+            </span>
+            <span
+              className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border font-medium ${statusColor(f.entry.status)}`}
+              title={statusLabel(f.entry.status)}
+            >
+              {f.entry.status}
+            </span>
+          </div>
+        );
+      })}
     </>
   );
 }

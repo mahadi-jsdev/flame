@@ -11,6 +11,7 @@ export interface AppSettings {
   restoreSession: boolean;
   theme: string;
   sidebarCollapsed: boolean;
+  gitPanelCollapsed: boolean;
 }
 
 export const defaultSettings: AppSettings = {
@@ -23,6 +24,7 @@ export const defaultSettings: AppSettings = {
   restoreSession: true,
   theme: "flightdeck",
   sidebarCollapsed: false,
+  gitPanelCollapsed: false,
 };
 
 export interface Project {

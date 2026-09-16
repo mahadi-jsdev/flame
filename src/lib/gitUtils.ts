@@ -80,8 +80,13 @@ export function buildTree(entries: GitStatusEntry[]): TreeDir {
   };
 
   for (const e of entries) {
-    const parts = e.path.split("/");
-    const name = parts.pop() ?? e.path;
+    // git reports an entire untracked directory as one line ending in "/"
+    // rather than listing every file inside it — strip that trailing slash
+    // before taking the last path segment, or it leaves an empty string
+    // (`?? e.path` doesn't catch that: "" is falsy but not nullish).
+    const trimmed = e.path.endsWith("/") ? e.path.slice(0, -1) : e.path;
+    const parts = trimmed.split("/");
+    const name = parts.pop() || trimmed;
     const dir = ensureDir(parts.join("/"));
     dir.files.push({ name, entry: e });
   }

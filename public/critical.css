@@ -1,0 +1,17 @@
+/* Painted before the bundled CSS/React even loads, so the very first
+   frame is already dark instead of the browser's default white — that
+   gap is what shows up as a white flash on launch.
+
+   Kept as an external stylesheet rather than an inline <style> block in
+   index.html on purpose: an inline style block is exactly what forces
+   Tauri to stamp a nonce/hash onto the CSP's style-src directive, which
+   per the CSP spec silently disables 'unsafe-inline' for every inline
+   style on the page — including the ones CodeMirror injects at runtime
+   for syntax highlighting. An external, same-origin file needs no
+   nonce at all, so style-src's 'unsafe-inline' stays intact for
+   everything that actually needs it. */
+html,
+body {
+  background: #0e0b08;
+  color-scheme: dark;
+}

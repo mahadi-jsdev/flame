@@ -3,6 +3,7 @@ import { useWorkspaceStore } from "../store/workspaceStore";
 import { pickDirectory } from "../lib/tauri";
 import { quotedShell } from "../lib/gitUtils";
 import {
+  FileSearch,
   FolderPlus,
   History,
   Layers,
@@ -25,9 +26,11 @@ interface Action {
 export function CommandPalette({
   onClose,
   onOpenSettings,
+  onOpenFileFinder,
 }: {
   onClose: () => void;
   onOpenSettings: () => void;
+  onOpenFileFinder: () => void;
 }) {
   const store = useWorkspaceStore();
   const workspace = store.getActiveWorkspace();
@@ -128,6 +131,13 @@ export function CommandPalette({
               workspace.id,
             ),
         });
+        list.push({
+          id: "go-to-file",
+          label: "Go to File…",
+          hint: "⌘P",
+          icon: <FileSearch size={14} />,
+          run: onOpenFileFinder,
+        });
       }
     }
 
@@ -141,7 +151,7 @@ export function CommandPalette({
     }
 
     return list;
-  }, [store, workspace, onOpenSettings]);
+  }, [store, workspace, onOpenSettings, onOpenFileFinder]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

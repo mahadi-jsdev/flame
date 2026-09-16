@@ -563,3 +563,47 @@ describe("sidebar collapse", () => {
     expect(screen.getByText("FLAME")).toBeInTheDocument();
   });
 });
+
+describe("git panel collapse", () => {
+  it("collapses to a slim rail and expands back", () => {
+    render(<Workspace />);
+    expect(screen.getByText("Changes")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle("Collapse git panel"));
+    expect(screen.queryByText("Changes")).not.toBeInTheDocument();
+    expect(screen.getByTitle("Expand git panel")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle("Expand git panel"));
+    expect(screen.getByText("Changes")).toBeInTheDocument();
+  });
+
+  it("persists independently of the left sidebar's collapsed state", () => {
+    render(<Workspace />);
+    fireEvent.click(screen.getByTitle("Collapse sidebar"));
+    expect(screen.getByText("Changes")).toBeInTheDocument();
+    fireEvent.click(screen.getByTitle("Collapse git panel"));
+    expect(screen.getByTitle("Expand sidebar")).toBeInTheDocument();
+    expect(screen.getByTitle("Expand git panel")).toBeInTheDocument();
+  });
+});
+
+describe("Ctrl+P file finder", () => {
+  it("does nothing when no project is active", () => {
+    render(<Workspace />);
+    fireEvent.keyDown(window, { key: "p", ctrlKey: true });
+    expect(screen.queryByPlaceholderText("Go to file…")).not.toBeInTheDocument();
+  });
+
+  it("opens the file finder when a project is active", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? { ...w, projects: [{ id: "pr1", root: "/repo/a" }], activeProjectId: "pr1" }
+          : w,
+      ),
+    }));
+    render(<Workspace />);
+    fireEvent.keyDown(window, { key: "p", ctrlKey: true });
+    expect(screen.getByPlaceholderText("Go to file…")).toBeInTheDocument();
+  });
+});

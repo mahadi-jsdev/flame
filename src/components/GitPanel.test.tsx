@@ -16,6 +16,9 @@ const mocks = vi.hoisted(() => ({
   gitCheckout: vi.fn(async () => {}),
   gitRoot: vi.fn(async () => "/repo"),
   gitAutoCommit: vi.fn(async () => "feat: add the thing"),
+  gitDiffFile: vi.fn(async () => "diff --git a/a.ts b/a.ts\n+added line\n"),
+  readTextFile: vi.fn(async () => "file content"),
+  writeTextFile: vi.fn(async () => {}),
 }));
 
 vi.mock("../lib/tauri", () => ({
@@ -26,6 +29,28 @@ vi.mock("../lib/tauri", () => ({
   gitCheckout: mocks.gitCheckout,
   gitRoot: mocks.gitRoot,
   gitAutoCommit: mocks.gitAutoCommit,
+  gitDiffFile: mocks.gitDiffFile,
+  readTextFile: mocks.readTextFile,
+  writeTextFile: mocks.writeTextFile,
+}));
+
+// See FileEditorDialog.test.tsx for why CodeEditor is stubbed rather than
+// exercised for real here too.
+vi.mock("./CodeEditor", () => ({
+  CodeEditor: ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (v: string) => void;
+    path: string;
+  }) => (
+    <textarea
+      data-testid="code-editor"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  ),
 }));
 
 function reset() {
@@ -71,12 +96,29 @@ describe("GitPanel", () => {
     expect(screen.getByText(/Select or add a project/)).toBeInTheDocument();
   });
 
-  it("file rows are informational only, no diff click", async () => {
+  it("clicking a file row opens it in the file editor dialog, defaulting to diff view", async () => {
     render(<GitPanel />);
-    const row = await screen.findByText("a.ts");
-    fireEvent.click(row);
+    fireEvent.click(await screen.findByText("a.ts"));
+    expect(await screen.findByText("+added line")).toBeInTheDocument();
+    expect(mocks.gitDiffFile).toHaveBeenCalledWith("/repo", "src/a.ts");
+    // no PTY overlay pane involved — this is a self-contained dialog
     const overlay = store().workspaces[0].panes.find((p) => p.overlay);
     expect(overlay).toBeUndefined();
+  });
+
+  it("clicking an untracked file opens straight into edit mode (nothing to diff)", async () => {
+    render(<GitPanel />);
+    fireEvent.click(await screen.findByText("new.txt"));
+    expect(await screen.findByDisplayValue("file content")).toBeInTheDocument();
+    expect(mocks.gitDiffFile).not.toHaveBeenCalled();
+  });
+
+  it("close button dismisses the file editor dialog", async () => {
+    render(<GitPanel />);
+    fireEvent.click(await screen.findByText("a.ts"));
+    await screen.findByText("+added line");
+    fireEvent.click(screen.getByTitle("Close"));
+    expect(screen.queryByText("+added line")).not.toBeInTheDocument();
   });
 
   it("branch dropdown lists branches and switches", async () => {

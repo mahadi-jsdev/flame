@@ -176,4 +176,21 @@ describe("buildTree", () => {
     const src = t.dirs.find((d) => d.name.startsWith("src"))!;
     expect(src).toBeDefined();
   });
+
+  it("names an untracked directory (git's trailing-slash form) by its own folder name, not blank", () => {
+    const t = buildTree([e("??", "app/admin/announcements/newthing/")]);
+    // single-child chains collapse, so the compressed dir is named the
+    // full "app/admin/announcements" path and directly holds the file.
+    const dir = t.dirs[0];
+    expect(dir.name).toBe("app/admin/announcements");
+    expect(dir.files).toHaveLength(1);
+    expect(dir.files[0].name).toBe("newthing");
+    expect(dir.files[0].name).not.toBe("");
+  });
+
+  it("handles a top-level untracked directory", () => {
+    const t = buildTree([e("??", "vendor/")]);
+    expect(t.files).toHaveLength(1);
+    expect(t.files[0].name).toBe("vendor");
+  });
 });

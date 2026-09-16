@@ -12,6 +12,8 @@ import { TerminalPane } from "./TerminalPane";
 import { SettingsDialog } from "./SettingsDialog";
 import { CommandPalette } from "./CommandPalette";
 import { GitPanel } from "./GitPanel";
+import { FileFinder, type OpenedFileInfo } from "./FileFinder";
+import { FileEditorDialog } from "./FileEditorDialog";
 import {
   Plus,
   X,
@@ -22,6 +24,7 @@ import {
   Folder,
   Search,
   PanelLeftOpen,
+  PanelRightOpen,
   Minimize2,
   Maximize2,
 } from "lucide-react";
@@ -137,6 +140,7 @@ const PANE_COLOR_PALETTE: (string | undefined)[] = [
 export function Workspace() {
   const store = useWorkspaceStore();
   const workspace = store.getActiveWorkspace();
+  const project = workspace?.projects.find((p) => p.id === workspace.activeProjectId);
   const projectPanes = workspace ? panesForProject(workspace, workspace.activeProjectId) : [];
   const panes = projectPanes.filter((p) => !p.backgrounded);
   const backgroundedPanes = projectPanes.filter((p) => p.backgrounded);
@@ -158,6 +162,8 @@ export function Workspace() {
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
+  const [showFileFinder, setShowFileFinder] = useState(false);
+  const [openedFile, setOpenedFile] = useState<OpenedFileInfo | null>(null);
   const [editingPaneId, setEditingPaneId] = useState<string | null>(null);
   const [editingPaneName, setEditingPaneName] = useState("");
   const [uptimeSec, setUptimeSec] = useState(0);
@@ -246,6 +252,13 @@ export function Workspace() {
       if (!e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setShowPalette(true);
+        return;
+      }
+      if (!e.shiftKey && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        const ws = useWorkspaceStore.getState().getActiveWorkspace();
+        const proj = ws?.projects.find((p) => p.id === ws.activeProjectId);
+        if (proj) setShowFileFinder(true);
         return;
       }
       if (e.shiftKey && e.key.toLowerCase() === "e") {
@@ -605,7 +618,19 @@ export function Workspace() {
             )}
           </main>
 
-          <GitPanel />
+          {store.settings.gitPanelCollapsed ? (
+            <div className="w-10 h-full shrink-0 flex flex-col items-center pt-3 gap-3 bg-[#1d1811] border-l border-white/10">
+              <button
+                onClick={() => store.updateSettings({ gitPanelCollapsed: false })}
+                className="p-1.5 rounded-md text-[#a99a86] hover:text-accent hover:bg-white/[0.06] transition-colors"
+                title="Expand git panel"
+              >
+                <PanelRightOpen size={16} />
+              </button>
+            </div>
+          ) : (
+            <GitPanel />
+          )}
         </div>
 
         {overlayPanes.map((pane) => (
@@ -651,6 +676,27 @@ export function Workspace() {
           <CommandPalette
             onClose={() => setShowPalette(false)}
             onOpenSettings={() => setShowSettings(true)}
+            onOpenFileFinder={() => {
+              setShowPalette(false);
+              setShowFileFinder(true);
+            }}
+          />
+        )}
+
+        {showFileFinder && project && (
+          <FileFinder
+            projectRoot={project.root}
+            onOpenFile={setOpenedFile}
+            onClose={() => setShowFileFinder(false)}
+          />
+        )}
+
+        {openedFile && (
+          <FileEditorDialog
+            absPath={openedFile.absPath}
+            repoRoot={openedFile.repoRoot}
+            relPath={openedFile.relPath}
+            onClose={() => setOpenedFile(null)}
           />
         )}
 
