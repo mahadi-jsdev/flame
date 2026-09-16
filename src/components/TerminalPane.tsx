@@ -305,6 +305,11 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
               .then((text) => {
                 if (text && sessionIdRef.current) {
                   writePty(sessionIdRef.current, text).catch(console.error);
+                  // This bypasses term.onData, so feed the watcher directly —
+                  // otherwise a pasted agent-launch command (e.g. "claude")
+                  // never reaches maybeAutoTag and that pane never appears
+                  // in the sidebar's Agents list despite actually running.
+                  watcher.onInput(text);
                 }
               })
               .catch(() => {});
@@ -367,6 +372,16 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
           if (payload.id !== id) return;
           if (runningTimeout) clearTimeout(runningTimeout);
           useWorkspaceStore.getState().setPaneRunning(paneId, false);
+          if (autoTagged) {
+            // The agent this pane was auto-tagged for has actually ended
+            // (the whole session exited) — clear the tag so it drops out of
+            // the sidebar's Agents list instead of lingering as a stale
+            // entry until the pane itself is closed. Only ever clears a tag
+            // this same pane instance applied automatically, never one the
+            // user set by hand.
+            useWorkspaceStore.getState().renamePane(paneId, undefined);
+            useWorkspaceStore.getState().setPaneColor(paneId, undefined);
+          }
           term.writeln("\r\n[session ended]");
         });
 

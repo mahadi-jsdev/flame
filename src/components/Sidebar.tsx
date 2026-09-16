@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useWorkspaceStore, Pane, Workspace } from "../store/workspaceStore";
+import { useWorkspaceStore, panesForProject, Pane, Workspace } from "../store/workspaceStore";
 import { ProjectPanel } from "./ProjectPanel";
 import {
   Plus,
@@ -120,6 +120,13 @@ export function Sidebar() {
           <div className="space-y-0.5">
             {workspaces.map((w) => {
               const isActive = w.id === activeId;
+              // Matches the header's "N bays" in Workspace.tsx: bays visible
+              // right now for this workspace's active project. `w.panes.length`
+              // counts every pane across every project plus backgrounded ones,
+              // which reads as a bogus, inflated number next to that header.
+              const visibleBayCount = panesForProject(w, w.activeProjectId).filter(
+                (p) => !p.backgrounded,
+              ).length;
               return (
                 <div
                   key={w.id}
@@ -163,9 +170,9 @@ export function Sidebar() {
                     <span className="flex items-center shrink-0">
                       <span
                         className="mr-0.5 font-mono text-[10px] text-[#6f6455] group-hover:opacity-0 transition-opacity"
-                        title={`${w.panes.length} terminal${w.panes.length === 1 ? "" : "s"}`}
+                        title={`${visibleBayCount} bay${visibleBayCount === 1 ? "" : "s"}`}
                       >
-                        {w.panes.length}
+                        {visibleBayCount}
                       </span>
                       <button
                         onClick={(e) => {

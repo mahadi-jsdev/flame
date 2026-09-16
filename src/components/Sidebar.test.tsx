@@ -105,8 +105,41 @@ describe("Sidebar", () => {
 
   it("shows pane count chip per workspace", () => {
     render(<Sidebar />);
-    const chips = screen.getAllByTitle(/terminal/);
+    const chips = screen.getAllByTitle(/bay/);
     expect(chips.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("pane count chip matches bays visible for the workspace's active project, not the raw pane total", () => {
+    // w1 has 3 panes total: one for the active project, one backgrounded
+    // (hidden from the grid), and one scoped to a different, inactive
+    // project. The header on Workspace.tsx would only count the first as a
+    // visible bay, so the sidebar chip must agree instead of showing "3".
+    useWorkspaceStore.setState({
+      workspaces: [
+        {
+          id: "w1",
+          name: "Alpha",
+          projects: [
+            { id: "proj-a", root: "/a" },
+            { id: "proj-b", root: "/b" },
+          ],
+          activeProjectId: "proj-a",
+          panes: [
+            { id: "p1", type: "terminal", projectId: "proj-a" },
+            { id: "p2", type: "terminal", projectId: "proj-a", backgrounded: true },
+            { id: "p3", type: "terminal", projectId: "proj-b" },
+          ],
+          activeTerminalId: null,
+        },
+      ],
+      activeWorkspaceId: "w1",
+      settings: defaultSettings,
+      templates: [],
+      closedPanes: [],
+    });
+    render(<Sidebar />);
+    expect(screen.getByTitle("1 bay")).toBeInTheDocument();
+    expect(screen.queryByTitle("3 bays")).not.toBeInTheDocument();
   });
 
   it("save as template prompts for a name and stores it", () => {
