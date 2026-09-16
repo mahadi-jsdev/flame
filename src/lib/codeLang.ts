@@ -24,7 +24,10 @@ export function languageForPath(path: string): Extension[] {
     case "js":
     case "mjs":
     case "cjs":
-      return [javascript()];
+      // .js commonly holds JSX too (Next.js/CRA projects that don't use the
+      // .jsx extension) — enabling JSX parsing is a harmless superset for
+      // plain JS files and required for these, so it's on unconditionally.
+      return [javascript({ jsx: true })];
     case "jsx":
       return [javascript({ jsx: true })];
     case "json":
