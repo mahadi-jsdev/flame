@@ -56,6 +56,11 @@ export function writeTextFile(path: string, content: string) {
   return invoke<void>("write_text_file_cmd", { path, content });
 }
 
+/** Resolves to a ready-to-use `data:image/...;base64,...` URL. */
+export function readImageFile(path: string) {
+  return invoke<string>("read_image_file_cmd", { path });
+}
+
 export function listProjectFiles(path: string) {
   return invoke<string[]>("list_project_files_cmd", { path });
 }

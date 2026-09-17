@@ -6,12 +6,14 @@ const mocks = vi.hoisted(() => ({
   gitDiffFile: vi.fn(async () => "diff --git a/a.ts b/a.ts\n@@ -1 +1 @@\n-old\n+new\n"),
   readTextFile: vi.fn(async () => "const x = 1;"),
   writeTextFile: vi.fn(async () => {}),
+  readImageFile: vi.fn(async () => "data:image/png;base64,AAAA"),
 }));
 
 vi.mock("../lib/tauri", () => ({
   gitDiffFile: mocks.gitDiffFile,
   readTextFile: mocks.readTextFile,
   writeTextFile: mocks.writeTextFile,
+  readImageFile: mocks.readImageFile,
 }));
 
 // CodeMirror's real contenteditable structure works in jsdom but isn't
@@ -139,5 +141,38 @@ describe("FileEditorDialog", () => {
     fireEvent.click(screen.getByText("Diff"));
     expect(await screen.findByText("New file — nothing to diff yet.")).toBeInTheDocument();
     expect(mocks.gitDiffFile).not.toHaveBeenCalled();
+  });
+});
+
+describe("FileEditorDialog image preview", () => {
+  const imageProps = {
+    absPath: "/repo/assets/logo.png",
+    repoRoot: "/repo",
+    relPath: "assets/logo.png",
+    status: " M",
+    onClose: vi.fn(),
+  };
+
+  it("renders the decoded image instead of the diff/edit views", async () => {
+    render(<FileEditorDialog {...imageProps} />);
+    const img = await screen.findByAltText("logo.png");
+    expect(img).toHaveAttribute("src", "data:image/png;base64,AAAA");
+    expect(mocks.readImageFile).toHaveBeenCalledWith("/repo/assets/logo.png");
+    expect(mocks.gitDiffFile).not.toHaveBeenCalled();
+    expect(mocks.readTextFile).not.toHaveBeenCalled();
+  });
+
+  it("hides the Diff/Edit toggle and Save button for images", async () => {
+    render(<FileEditorDialog {...imageProps} />);
+    await screen.findByAltText("logo.png");
+    expect(screen.queryByText("Diff")).not.toBeInTheDocument();
+    expect(screen.queryByText("Edit")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Save (Ctrl+S)")).not.toBeInTheDocument();
+  });
+
+  it("surfaces an error instead of a blank pane when the image fails to load", async () => {
+    mocks.readImageFile.mockRejectedValueOnce(new Error("image is too large to preview"));
+    render(<FileEditorDialog {...imageProps} />);
+    expect(await screen.findByText(/too large to preview/)).toBeInTheDocument();
   });
 });

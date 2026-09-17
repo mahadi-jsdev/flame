@@ -26,7 +26,6 @@ import {
   FolderOpen,
   GitBranch,
   Loader2,
-  PanelRightClose,
   RefreshCw,
   Sparkles,
   SquareTerminal,
@@ -183,13 +182,6 @@ export function GitPanel() {
               />
             </button>
           )}
-          <button
-            onClick={() => store.updateSettings({ gitPanelCollapsed: true })}
-            className="shrink-0 p-1 rounded-md text-[#a99a86] hover:text-accent hover:bg-white/[0.05] transition-colors"
-            title="Collapse git panel"
-          >
-            <PanelRightClose size={14} />
-          </button>
           </span>
         </div>
         {project && (

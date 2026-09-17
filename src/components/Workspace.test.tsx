@@ -551,39 +551,37 @@ describe("background and foreground", () => {
 });
 
 describe("sidebar collapse", () => {
-  it("collapses to a slim rail and expands back", () => {
+  it("Ctrl+B toggles the sidebar closed and back open", () => {
     render(<Workspace />);
     expect(screen.getByText("FLAME")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTitle("Collapse sidebar"));
+    fireEvent.keyDown(window, { key: "b", ctrlKey: true });
     expect(screen.queryByText("FLAME")).not.toBeInTheDocument();
-    expect(screen.getByTitle("Expand sidebar")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTitle("Expand sidebar"));
+    fireEvent.keyDown(window, { key: "b", ctrlKey: true });
     expect(screen.getByText("FLAME")).toBeInTheDocument();
   });
 });
 
 describe("git panel collapse", () => {
-  it("collapses to a slim rail and expands back", () => {
+  it("Ctrl+G toggles the git panel closed and back open", () => {
     render(<Workspace />);
     expect(screen.getByText("Changes")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTitle("Collapse git panel"));
+    fireEvent.keyDown(window, { key: "g", ctrlKey: true });
     expect(screen.queryByText("Changes")).not.toBeInTheDocument();
-    expect(screen.getByTitle("Expand git panel")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTitle("Expand git panel"));
+    fireEvent.keyDown(window, { key: "g", ctrlKey: true });
     expect(screen.getByText("Changes")).toBeInTheDocument();
   });
 
   it("persists independently of the left sidebar's collapsed state", () => {
     render(<Workspace />);
-    fireEvent.click(screen.getByTitle("Collapse sidebar"));
+    fireEvent.keyDown(window, { key: "b", ctrlKey: true });
     expect(screen.getByText("Changes")).toBeInTheDocument();
-    fireEvent.click(screen.getByTitle("Collapse git panel"));
-    expect(screen.getByTitle("Expand sidebar")).toBeInTheDocument();
-    expect(screen.getByTitle("Expand git panel")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "g", ctrlKey: true });
+    expect(screen.queryByText("FLAME")).not.toBeInTheDocument();
+    expect(screen.queryByText("Changes")).not.toBeInTheDocument();
   });
 });
 

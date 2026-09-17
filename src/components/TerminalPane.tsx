@@ -289,6 +289,17 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
           if (ctrlOrCmd && !e.shiftKey && e.key.toLowerCase() === "p") {
             return false;
           }
+          // Same deal for Ctrl+B (toggle sidebar) and Ctrl+G (toggle git
+          // panel) — both are also readline bindings (cursor-left, abort)
+          // that xterm would otherwise swallow and forward as control bytes
+          // before the window-level handler ever sees the keydown.
+          if (
+            ctrlOrCmd &&
+            !e.shiftKey &&
+            (e.key.toLowerCase() === "b" || e.key.toLowerCase() === "g")
+          ) {
+            return false;
+          }
           // Plain Ctrl+C/Ctrl+V stay reserved for SIGINT and literal paste —
           // Ctrl+Shift+C/V is the conventional Linux-terminal copy/paste.
           if (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === "c") {

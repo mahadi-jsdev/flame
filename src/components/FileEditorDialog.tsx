@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { gitDiffFile, readTextFile, writeTextFile } from "../lib/tauri";
+import { gitDiffFile, readImageFile, readTextFile, writeTextFile } from "../lib/tauri";
 import { statusColor, statusLabel } from "../lib/gitUtils";
+import { isImagePath } from "../lib/codeLang";
 import { CodeEditor } from "./CodeEditor";
 import { Check, FileText, GitCompare, Loader2, Pencil, X } from "lucide-react";
 
@@ -31,12 +32,14 @@ export function FileEditorDialog({
   status,
   onClose,
 }: FileEditorDialogProps) {
+  const isImage = isImagePath(relPath);
   const isUntracked = status === "??" || status === undefined;
   const [mode, setMode] = useState<"diff" | "edit">(isUntracked ? "edit" : "diff");
 
   const [content, setContent] = useState<string | null>(null);
   const [original, setOriginal] = useState<string | null>(null);
   const [diff, setDiff] = useState<string | null>(null);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -47,6 +50,17 @@ export function FileEditorDialog({
 
   useEffect(() => {
     let cancelled = false;
+    if (isImage) {
+      setLoading(true);
+      setError(null);
+      readImageFile(absPath)
+        .then((url) => !cancelled && setImageSrc(url))
+        .catch((e) => !cancelled && setError(String(e)))
+        .finally(() => !cancelled && setLoading(false));
+      return () => {
+        cancelled = true;
+      };
+    }
     if (mode === "edit" && content === null) {
       setLoading(true);
       setError(null);
@@ -132,7 +146,7 @@ export function FileEditorDialog({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {status !== undefined && (
+            {!isImage && status !== undefined && (
               <div className="flex p-0.5 rounded-lg bg-[#0e0b08]/80 border border-white/10">
                 <button
                   onClick={() => setMode("diff")}
@@ -158,7 +172,7 @@ export function FileEditorDialog({
                 </button>
               </div>
             )}
-            {mode === "edit" && (
+            {!isImage && mode === "edit" && (
               <button
                 onClick={save}
                 disabled={!dirty || saving}
@@ -196,7 +210,24 @@ export function FileEditorDialog({
               </div>
             </div>
           )}
-          {!error && mode === "edit" && content !== null && (
+          {!error && isImage && imageSrc !== null && (
+            <div
+              className="h-full w-full flex items-center justify-center overflow-auto p-6"
+              style={{
+                backgroundImage:
+                  "linear-gradient(45deg, #2a2318 25%, transparent 25%), linear-gradient(-45deg, #2a2318 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #2a2318 75%), linear-gradient(-45deg, transparent 75%, #2a2318 75%)",
+                backgroundSize: "20px 20px",
+                backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0px",
+              }}
+            >
+              <img
+                src={imageSrc}
+                alt={name}
+                className="max-w-full max-h-full object-contain rounded shadow-lg shadow-black/40"
+              />
+            </div>
+          )}
+          {!error && !isImage && mode === "edit" && content !== null && (
             <CodeEditor
               value={content}
               onChange={setContent}
@@ -206,12 +237,12 @@ export function FileEditorDialog({
               autoFocus
             />
           )}
-          {!error && mode === "diff" && !loading && isUntracked && (
+          {!error && !isImage && mode === "diff" && !loading && isUntracked && (
             <div className="h-full flex flex-col items-center justify-center text-[#8a7c68] text-center px-4">
               <p className="text-xs">New file — nothing to diff yet.</p>
             </div>
           )}
-          {!error && mode === "diff" && diff !== null && !isUntracked && (
+          {!error && !isImage && mode === "diff" && diff !== null && !isUntracked && (
             <pre className="w-full h-full overflow-auto p-4 font-mono text-xs leading-relaxed whitespace-pre">
               {diff.trim() === "" ? (
                 <span className="text-[#8a7c68]">No changes to show.</span>

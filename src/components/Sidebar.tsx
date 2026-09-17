@@ -9,7 +9,6 @@ import {
   Bookmark,
   LayoutTemplate,
   Rocket,
-  PanelLeftClose,
 } from "lucide-react";
 
 function baseName(path: string) {
@@ -85,6 +84,15 @@ export function Sidebar() {
     }
   };
 
+  // There's no reliable way to detect from terminal output alone that an
+  // agent CLI has quit back to a bare shell prompt (most print nothing on
+  // exit), so a tagged pane can outlive the process it was tagged for. This
+  // lets the user drop it from the list by hand instead of closing the pane.
+  const dismissAgent = (entry: AgentEntry) => {
+    store.renamePane(entry.pane.id, undefined, entry.workspaceId);
+    store.setPaneColor(entry.pane.id, undefined, entry.workspaceId);
+  };
+
   return (
     <div className="w-60 h-full flex flex-col overflow-hidden bg-[#1d1811] border-r border-white/10 animate-fade-in">
       <div className="h-14 shrink-0 flex items-center gap-2.5 px-4 border-b border-white/10">
@@ -94,13 +102,6 @@ export function Sidebar() {
         <span className="font-display text-[13px] font-semibold tracking-wide text-[#f3e9d8] flex-1">
           FLAME
         </span>
-        <button
-          onClick={() => store.updateSettings({ sidebarCollapsed: true })}
-          className="p-1 rounded-md text-[#a99a86] hover:text-accent hover:bg-white/[0.05] transition-colors"
-          title="Collapse sidebar"
-        >
-          <PanelLeftClose size={14} />
-        </button>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-6">
@@ -272,10 +273,10 @@ export function Sidebar() {
                 const dotColor = pane.waitingForInput ? "#fb7185" : pane.color;
                 const pulsing = pane.waitingForInput || pane.running;
                 return (
-                  <button
+                  <div
                     key={pane.id}
                     onClick={() => jumpToAgent(entry)}
-                    className="group w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left hover:bg-white/[0.04] transition-colors"
+                    className="group w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left hover:bg-white/[0.04] transition-colors cursor-pointer"
                     title={`Jump to ${pane.title}${entry.projectLabel ? ` · ${entry.projectLabel}` : ""}`}
                   >
                     <span
@@ -306,7 +307,17 @@ export function Sidebar() {
                         bg
                       </span>
                     )}
-                  </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        dismissAgent(entry);
+                      }}
+                      className="shrink-0 opacity-0 group-hover:opacity-100 p-1 rounded text-[#6f6455] hover:text-rose-300 hover:bg-rose-500/20 transition-all"
+                      title="Stop tracking as agent"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
                 );
               })}
             </div>

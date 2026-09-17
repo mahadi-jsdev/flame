@@ -1,9 +1,49 @@
+use base64::{engine::general_purpose, Engine as _};
 use std::fs;
 use std::path::Path;
 
 /// Above this, a plain `<textarea>` editor stops being usable — reject
 /// early with a clear message instead of freezing the UI trying to render it.
 const MAX_EDITABLE_BYTES: u64 = 5 * 1024 * 1024;
+
+/// Base64 inflates payload size by ~33% on top of the IPC round-trip, so cap
+/// well below what a "just show a picture" feature should ever need.
+const MAX_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
+
+fn image_mime_type(path: &str) -> Option<&'static str> {
+    let ext = Path::new(path).extension()?.to_str()?.to_ascii_lowercase();
+    Some(match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "webp" => "image/webp",
+        "gif" => "image/gif",
+        "bmp" => "image/bmp",
+        "ico" => "image/x-icon",
+        _ => return None,
+    })
+}
+
+/// Reads an image file and returns it as a ready-to-use `data:` URL —
+/// simpler than wiring up the Tauri asset protocol (which needs an explicit,
+/// updated-on-the-fly scope per user-added project directory) for what's
+/// just a handful of small preview images at a time.
+pub fn read_image_file_as_data_url(path: &str) -> Result<String, String> {
+    let mime = image_mime_type(path).ok_or_else(|| "not a supported image type".to_string())?;
+    let meta = fs::metadata(path).map_err(|e| e.to_string())?;
+    if !meta.is_file() {
+        return Err("not a file".into());
+    }
+    if meta.len() > MAX_IMAGE_BYTES {
+        return Err(format!(
+            "image is too large to preview ({:.1} MB, limit {} MB)",
+            meta.len() as f64 / 1024.0 / 1024.0,
+            MAX_IMAGE_BYTES / 1024 / 1024
+        ));
+    }
+    let bytes = fs::read(path).map_err(|e| e.to_string())?;
+    let b64 = general_purpose::STANDARD.encode(&bytes);
+    Ok(format!("data:{mime};base64,{b64}"))
+}
 
 pub fn read_text_file(path: &str) -> Result<String, String> {
     let meta = fs::metadata(path).map_err(|e| e.to_string())?;
@@ -192,6 +232,55 @@ mod tests {
     fn walk_on_missing_directory_errors() {
         let p = temp_path("does-not-exist");
         assert!(list_files_fallback_walk(p.to_str().unwrap()).is_err());
+    }
+
+    #[test]
+    fn read_image_file_returns_a_data_url_with_correct_mime_and_bytes() {
+        let p = temp_path("pic.png");
+        fs::write(&p, [0x89, 0x50, 0x4e, 0x47]).unwrap();
+        let url = read_image_file_as_data_url(p.to_str().unwrap()).unwrap();
+        assert!(url.starts_with("data:image/png;base64,"));
+        let (_, b64) = url.split_once(',').unwrap();
+        let decoded = general_purpose::STANDARD.decode(b64).unwrap();
+        assert_eq!(decoded, [0x89, 0x50, 0x4e, 0x47]);
+    }
+
+    #[test]
+    fn read_image_file_maps_jpg_and_jpeg_and_webp_extensions() {
+        for (name, mime) in [
+            ("a.jpg", "image/jpeg"),
+            ("a.jpeg", "image/jpeg"),
+            ("a.webp", "image/webp"),
+            ("a.JPG", "image/jpeg"),
+        ] {
+            let p = temp_path(name);
+            fs::write(&p, [1, 2, 3]).unwrap();
+            let url = read_image_file_as_data_url(p.to_str().unwrap()).unwrap();
+            assert!(url.starts_with(&format!("data:{mime};base64,")), "{name}");
+        }
+    }
+
+    #[test]
+    fn read_image_file_rejects_unsupported_extension() {
+        let p = temp_path("notes.txt");
+        fs::write(&p, "hello").unwrap();
+        let err = read_image_file_as_data_url(p.to_str().unwrap()).unwrap_err();
+        assert!(err.contains("not a supported image type"));
+    }
+
+    #[test]
+    fn read_image_file_missing_file_errors() {
+        let p = temp_path("missing.png");
+        assert!(read_image_file_as_data_url(p.to_str().unwrap()).is_err());
+    }
+
+    #[test]
+    fn read_image_file_rejects_oversized_image() {
+        let p = temp_path("huge.png");
+        let f = fs::File::create(&p).unwrap();
+        f.set_len(MAX_IMAGE_BYTES + 1).unwrap();
+        let err = read_image_file_as_data_url(p.to_str().unwrap()).unwrap_err();
+        assert!(err.contains("too large"));
     }
 
     #[test]

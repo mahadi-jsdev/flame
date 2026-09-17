@@ -107,6 +107,11 @@ fn write_text_file_cmd(path: String, content: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn read_image_file_cmd(path: String) -> Result<String, String> {
+    files::read_image_file_as_data_url(&path)
+}
+
+#[tauri::command]
 fn list_project_files_cmd(path: String) -> Result<Vec<String>, String> {
     git_list_files(&path).or_else(|_| files::list_files_fallback_walk(&path))
 }
@@ -178,6 +183,7 @@ pub fn run() {
             delete_api_key_cmd,
             read_text_file_cmd,
             write_text_file_cmd,
+            read_image_file_cmd,
             list_project_files_cmd
         ])
         .run(tauri::generate_context!())

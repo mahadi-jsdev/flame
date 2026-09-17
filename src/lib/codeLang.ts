@@ -64,6 +64,24 @@ export function languageForPath(path: string): Extension[] {
   }
 }
 
+const IMAGE_EXTENSIONS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "webp",
+  "gif",
+  "bmp",
+  "ico",
+]);
+
+/** Raster image extensions FileEditorDialog previews instead of opening as
+ * text — .svg is deliberately excluded since it's valid UTF-8 XML and
+ * already opens fine as editable text/code. */
+export function isImagePath(path: string): boolean {
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  return IMAGE_EXTENSIONS.has(ext);
+}
+
 /** LSP `languageId` for JS/TS files only — null means "not LSP-eligible",
  * same file-extension switch as languageForPath above. */
 export function lspLanguageIdForPath(

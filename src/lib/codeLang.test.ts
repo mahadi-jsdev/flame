@@ -1,5 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { lspLanguageIdForPath } from "./codeLang";
+import { isImagePath, lspLanguageIdForPath } from "./codeLang";
+
+describe("isImagePath", () => {
+  it("recognizes common raster extensions case-insensitively", () => {
+    expect(isImagePath("logo.png")).toBe(true);
+    expect(isImagePath("photo.JPG")).toBe(true);
+    expect(isImagePath("photo.jpeg")).toBe(true);
+    expect(isImagePath("banner.webp")).toBe(true);
+    expect(isImagePath("anim.gif")).toBe(true);
+    expect(isImagePath("scan.bmp")).toBe(true);
+    expect(isImagePath("favicon.ico")).toBe(true);
+  });
+
+  it("does not treat .svg as an image preview (it's editable text)", () => {
+    expect(isImagePath("icon.svg")).toBe(false);
+  });
+
+  it("returns false for non-image extensions", () => {
+    expect(isImagePath("README.md")).toBe(false);
+    expect(isImagePath("noextension")).toBe(false);
+  });
+});
 
 describe("lspLanguageIdForPath", () => {
   it("maps .ts to typescript", () => {

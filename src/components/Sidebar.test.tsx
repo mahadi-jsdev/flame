@@ -255,6 +255,31 @@ describe("Sidebar agent dashboard", () => {
     expect(names).toEqual(["busy-one", "idle-one"]);
   });
 
+  it("the dismiss button untags a pane instead of jumping to it", () => {
+    useWorkspaceStore.setState((s) => ({
+      workspaces: s.workspaces.map((w) =>
+        w.id === "w1"
+          ? {
+              ...w,
+              panes: [{ id: "p1", type: "terminal", title: "claude", color: "#ff8800" }],
+            }
+          : w,
+      ),
+      // Active workspace starts on w2 so a dismiss click that (incorrectly)
+      // bubbles into jumpToAgent's setActiveWorkspace("w1") is detectable.
+      activeWorkspaceId: "w2",
+    }));
+    render(<Sidebar />);
+    fireEvent.click(screen.getByTitle("Stop tracking as agent"));
+    expect(screen.queryByText("Agents")).not.toBeInTheDocument();
+    const pane = store()
+      .workspaces.find((w) => w.id === "w1")!
+      .panes.find((p) => p.id === "p1")!;
+    expect(pane.title).toBeUndefined();
+    expect(pane.color).toBeUndefined();
+    expect(store().activeWorkspaceId).toBe("w2");
+  });
+
   it("shows a 'bg' badge for a backgrounded pane", () => {
     useWorkspaceStore.setState((s) => ({
       workspaces: s.workspaces.map((w) =>

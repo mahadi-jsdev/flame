@@ -23,8 +23,6 @@ import {
   Settings,
   Folder,
   Search,
-  PanelLeftOpen,
-  PanelRightOpen,
   Minimize2,
   Maximize2,
 } from "lucide-react";
@@ -254,6 +252,18 @@ export function Workspace() {
         setShowPalette(true);
         return;
       }
+      if (!e.shiftKey && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        const st = useWorkspaceStore.getState();
+        st.updateSettings({ sidebarCollapsed: !st.settings.sidebarCollapsed });
+        return;
+      }
+      if (!e.shiftKey && e.key.toLowerCase() === "g") {
+        e.preventDefault();
+        const st = useWorkspaceStore.getState();
+        st.updateSettings({ gitPanelCollapsed: !st.settings.gitPanelCollapsed });
+        return;
+      }
       if (!e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
         const ws = useWorkspaceStore.getState().getActiveWorkspace();
@@ -323,19 +333,7 @@ export function Workspace() {
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#0e0b08] text-[#f3e9d8] selection:bg-accent/30 antialiased">
       <TitleBar />
       <div className="flex-1 min-h-0 flex overflow-hidden">
-      {store.settings.sidebarCollapsed ? (
-        <div className="w-10 h-full shrink-0 flex flex-col items-center pt-3 gap-3 bg-[#1d1811] border-r border-white/10">
-          <button
-            onClick={() => store.updateSettings({ sidebarCollapsed: false })}
-            className="p-1.5 rounded-md text-[#a99a86] hover:text-accent hover:bg-white/[0.06] transition-colors"
-            title="Expand sidebar"
-          >
-            <PanelLeftOpen size={16} />
-          </button>
-        </div>
-      ) : (
-        <Sidebar />
-      )}
+      {!store.settings.sidebarCollapsed && <Sidebar />}
 
       <div className="flex-1 flex flex-col min-w-0 relative">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_color-mix(in_srgb,var(--color-accent)_18%,#0e0b08)_0%,_#0e0b08_60%)] opacity-70 pointer-events-none" />
@@ -618,19 +616,7 @@ export function Workspace() {
             )}
           </main>
 
-          {store.settings.gitPanelCollapsed ? (
-            <div className="w-10 h-full shrink-0 flex flex-col items-center pt-3 gap-3 bg-[#1d1811] border-l border-white/10">
-              <button
-                onClick={() => store.updateSettings({ gitPanelCollapsed: false })}
-                className="p-1.5 rounded-md text-[#a99a86] hover:text-accent hover:bg-white/[0.06] transition-colors"
-                title="Expand git panel"
-              >
-                <PanelRightOpen size={16} />
-              </button>
-            </div>
-          ) : (
-            <GitPanel />
-          )}
+          {!store.settings.gitPanelCollapsed && <GitPanel />}
         </div>
 
         {overlayPanes.map((pane) => (
