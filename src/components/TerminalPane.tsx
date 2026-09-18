@@ -94,6 +94,18 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
     // leaked orphaned PTY process.
     let cancelled = false;
 
+    // A hidden pane (display:none on the card during a workspace/project
+    // switch, or while sent to background) has a 0x0 box and unresolvable
+    // computed metrics — proposeDimensions() then clamps to ~2 cols. If
+    // that bogus size reaches the PTY, any TUI inside (devin, vim, htop)
+    // redraws at a handful of columns and stays garbled. Gate every fit
+    // and every PTY-bound resize on the pane being measurable; the
+    // useLayoutEffect on `visible` above re-fits correctly on unhide.
+    const isPaneMeasurable = () => {
+      const el = divRef.current;
+      return !!el && el.clientWidth > 0 && el.clientHeight > 0;
+    };
+
     const markRunning = () => {
       useWorkspaceStore.getState().setPaneRunning(paneId, true);
       if (runningTimeout) clearTimeout(runningTimeout);
@@ -257,7 +269,10 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
         if (cancelled) return;
 
         term.open(divRef.current!);
-        fitAddon.fit();
+        // A pane can mount while its workspace/project isn't the visible
+        // one — fit() there would size the terminal (and the PTY spawned
+        // below) to the hidden-element minimum instead of 80x24.
+        if (isPaneMeasurable()) fitAddon.fit();
         attachWebgl();
 
         // Re-fit once more after layout fully settles. A still-resolving
@@ -268,7 +283,7 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
             try {
-              fitAddon.fit();
+              if (isPaneMeasurable()) fitAddon.fit();
             } catch {
               // pane may have unmounted between frames
             }
@@ -363,7 +378,11 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
         });
 
         term.onResize(({ cols, rows }) => {
-          resizePty(id, rows, cols).catch(console.error);
+          // Never forward a resize measured against a hidden pane — that's
+          // the SIGWINCH that makes devin-style TUIs redraw at ~2 cols.
+          if (isPaneMeasurable()) {
+            resizePty(id, rows, cols).catch(console.error);
+          }
         });
 
         const unlistenDataPromise = onPtyData((payload) => {
@@ -414,7 +433,7 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
           term.options.cursorBlink = st.cursorBlink;
           term.options.scrollback = st.scrollback;
           term.options.theme = resolveTheme(st.theme);
-          if (resized) {
+          if (resized && isPaneMeasurable()) {
             try {
               fitAddon.fit();
             } catch {
@@ -433,7 +452,11 @@ export function TerminalPane({ paneId, visible }: TerminalPaneProps) {
           }
         });
 
-        resizeObserver = new ResizeObserver(() => {
+        resizeObserver = new ResizeObserver((entries) => {
+          // Going display:none reports a 0x0 box — fitting against it
+          // would clamp the terminal to the ~2-col minimum.
+          const rect = entries[0]?.contentRect;
+          if (!rect || rect.width === 0 || rect.height === 0) return;
           try {
             fitAddon.fit();
           } catch {
